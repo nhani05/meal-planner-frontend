@@ -7,7 +7,14 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { useToast } from '../../hooks/use-toast';
+import { useUserStore } from '../../store/userStore';
 import { mealService } from '../../api/mealService';
+
+import NutritionSummaryBar from './components/NutritionSummaryBar';
+import MealSlotFrame from './components/MealSlotFrame';
+import AddDishModal from './components/AddDishModal';
+
+const EMPTY_MEALS = { breakfast: [], lunch: [], dinner: [], snack: [] };
 
 const CreateMealPlanPage = () => {
   const [searchParams] = useSearchParams();
@@ -17,14 +24,60 @@ const CreateMealPlanPage = () => {
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeMealType, setActiveMealType] = useState(null);
+  const [meals, setMeals] = useState({ ...EMPTY_MEALS });
+
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { healthGoal } = useUserStore();
 
   useEffect(() => {
     mealService.getTemplates()
       .then(data => setTemplates(Array.isArray(data) ? data : data?.content || []))
       .catch(() => setTemplates([]));
   }, []);
+
+  const handleOpenModal = (mealType) => {
+    setActiveMealType(mealType);
+    setIsModalOpen(true);
+  };
+
+  const handleAddDish = (dishData) => {
+    const tempPortion = { 
+      ...dishData, 
+      id: Date.now(),
+      dishName: dishData.name || dishData.dishName,
+      calories_kcal: dishData.calories_kcal || dishData.caloriesKcal || 0,
+      protein_g: dishData.protein_g || dishData.proteinG || 0,
+      carb_g: dishData.carb_g || dishData.carbG || 0,
+      fat_g: dishData.fat_g || dishData.fatG || 0
+    };
+    setMeals(prev => ({
+      ...prev,
+      [activeMealType]: [...prev[activeMealType], tempPortion]
+    }));
+    toast({ title: 'Đã thêm món ăn tạm thời' });
+  };
+
+  const handleDeletePortion = (mealType, portionId) => {
+    setMeals(prev => ({
+      ...prev,
+      [mealType]: prev[mealType].filter(p => p.id !== portionId)
+    }));
+  };
+
+  const calculateDailyTotals = () => {
+    return Object.values(meals).reduce((totals, portions) => {
+      portions.forEach(p => {
+        totals.calories += p.calories_kcal || 0;
+        totals.protein  += p.protein_g  || 0;
+        totals.carb     += p.carb_g     || 0;
+        totals.fat      += p.fat_g      || 0;
+      });
+      return totals;
+    }, { calories: 0, protein: 0, carb: 0, fat: 0 });
+  };
 
   const handleCreate = async () => {
     if (!planDate) {
@@ -36,14 +89,15 @@ const CreateMealPlanPage = () => {
       const payload = {
         planDate,
         planName: planName || `Thực đơn ngày ${planDate}`,
-        // Tạo 4 bữa rỗng theo đúng cấu trúc API
-        meals: [
-          { mealType: 'breakfast', portions: [] },
-          { mealType: 'lunch', portions: [] },
-          { mealType: 'dinner', portions: [] },
-          { mealType: 'snack', portions: [] },
-        ]
+        meals: Object.entries(meals).map(([type, portions]) => ({
+          mealType: type,
+          portions: portions.map(p => ({
+            dishId: p.dishId || p.id,
+            quantityG: p.quantity_g || p.quantityG
+          }))
+        }))
       };
+      // accountId sẽ tự lấy từ localStorage bên trong mealService
       const created = await mealService.createMealPlan(payload);
       toast({ title: 'Tạo kế hoạch thành công!', description: 'Bạn có thể bắt đầu thêm món ăn.' });
       navigate(`/meal-plans/${created.id}`);
@@ -58,60 +112,68 @@ const CreateMealPlanPage = () => {
   return (
     <div className="max-w-2xl mx-auto py-8">
       <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/meal-plans')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate('/meal-plans/manage')}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-bold">Tạo kế hoạch bữa ăn mới</h1>
       </div>
 
-      <Card>
+      <Card className="mb-8">
         <CardHeader>
           <CardTitle>Thông tin kế hoạch</CardTitle>
           <CardDescription>Thiết lập ngày và tên cho thực đơn của bạn.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="planDate">Ngày áp dụng <span className="text-destructive">*</span></Label>
-            <Input
-              id="planDate"
-              type="date"
-              value={planDate}
-              onChange={(e) => setPlanDate(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="planName">Tên kế hoạch (Tuỳ chọn)</Label>
-            <Input
-              id="planName"
-              placeholder="VD: Thực đơn siết cơ tuần 1"
-              value={planName}
-              onChange={(e) => setPlanName(e.target.value)}
-            />
-          </div>
-
-          {templates.length > 0 && (
-            <div className="border p-4 rounded-md bg-slate-50">
-              <h3 className="font-medium mb-2 text-sm">Hoặc áp dụng từ Mẫu có sẵn</h3>
-              <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                value={selectedTemplate}
-                onChange={(e) => setSelectedTemplate(e.target.value)}
-              >
-                <option value="">-- Không sử dụng mẫu --</option>
-                {templates.map(t => (
-                  <option key={t.id} value={t.id}>{t.templateName || t.name}</option>
-                ))}
-              </select>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="planDate">Ngày áp dụng <span className="text-destructive">*</span></Label>
+              <Input
+                id="planDate"
+                type="date"
+                value={planDate}
+                onChange={(e) => setPlanDate(e.target.value)}
+              />
             </div>
-          )}
-
-          <div className="flex justify-end pt-4">
-            <Button onClick={handleCreate} disabled={isLoading}>
-              {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang tạo...</> : 'Tiếp tục thêm món ăn'}
-            </Button>
+            <div className="space-y-2">
+              <Label htmlFor="planName">Tên kế hoạch (Tuỳ chọn)</Label>
+              <Input
+                id="planName"
+                placeholder="VD: Thực đơn siết cơ tuần 1"
+                value={planName}
+                onChange={(e) => setPlanName(e.target.value)}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      <NutritionSummaryBar dailyTotals={calculateDailyTotals()} healthGoal={healthGoal} />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        {['breakfast', 'lunch', 'dinner', 'snack'].map(mealType => (
+          <MealSlotFrame
+            key={mealType}
+            mealType={mealType}
+            portions={meals[mealType]}
+            onAddClick={handleOpenModal}
+            onDeletePortion={(portionId) => handleDeletePortion(mealType, portionId)}
+          />
+        ))}
+      </div>
+
+      <div className="flex justify-end gap-3 mt-8">
+        <Button variant="outline" onClick={() => navigate('/meal-plans/manage')}>Hủy</Button>
+        <Button onClick={handleCreate} disabled={isLoading}>
+          {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang tạo...</> : 'Lưu kế hoạch bữa ăn'}
+        </Button>
+      </div>
+
+      <AddDishModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        currentMealType={activeMealType}
+        onAddDish={handleAddDish}
+      />
     </div>
   );
 };

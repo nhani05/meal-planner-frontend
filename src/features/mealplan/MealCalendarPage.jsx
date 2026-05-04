@@ -18,11 +18,14 @@ const MealCalendarPage = () => {
 
   useEffect(() => {
     const fetchMealPlans = async () => {
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        setMealPlans({});
+        return;
+      }
       setIsLoading(true);
       try {
-        const startStr = format(weekDays[0], 'yyyy-MM-dd');
-        const endStr = format(weekDays[6], 'yyyy-MM-dd');
-        const data = await mealService.getMealPlans(startStr, endStr);
+        const data = await mealService.getMealPlans(userId);
         // Chuẩn hoá data thành map: { 'yyyy-MM-dd': planObject }
         const planMap = {};
         (Array.isArray(data) ? data : data?.content || []).forEach(plan => {

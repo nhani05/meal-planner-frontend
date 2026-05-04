@@ -61,13 +61,12 @@ Hệ thống gồm 4 module chính, mỗi module tương ứng với một nhóm
 | **HTTP Client** | Axios | API calls, interceptor gắn JWT |
 | **Charts** | Recharts | Biểu đồ dinh dưỡng, dashboard |
 | **Routing** | React Router v6 | Client-side routing, protected routes |
-| **Backend** | Spring Boot 3.x (Java 17) | REST API, kiến trúc MVC |
+| **Backend** | Spring Boot 4.0.6 (Java 17) | REST API, kiến trúc MVC |
 | **ORM** | Spring Data JPA / Hibernate | Entity mapping, repository pattern |
-| **Security** | Spring Security + JWT | Xác thực, phân quyền theo role |
-| **Email** | Spring Mail (SMTP) | Gửi OTP lấy lại mật khẩu |
+| **Security** | Spring Security + JWT (JJWT 0.11.5) | Xác thực, phân quyền theo role |
 | **Database** | MySQL 8 | Charset utf8mb4 |
 | **Build Tool** | Maven | Dependency management |
-| **API Docs** | Springdoc OpenAPI (Swagger) | Tự sinh tài liệu REST API |
+| **API Docs** | Springdoc OpenAPI (Swagger) | Tự sinh tài liệu REST API tại `/swagger-ui.html` |
 
 ---
 
@@ -96,20 +95,28 @@ src/
 ### Backend (Spring Boot)
 
 ```
-src/main/java/…/
-├── controller/             # REST controllers
-├── service/                # Business logic services
+src/main/java/…/meal_planner_system/
+├── controller/             # REST controllers (AuthController, DishController, ...)
+├── service/                # Business logic interfaces
+│   └── impl/               # Service implementations
 ├── repository/             # JPA repositories
 ├── entity/                 # JPA entity classes (ánh xạ tbl* tables)
+│   ├── enums/              # Enum definitions (UserRole, MealType, ...)
+│   └── converter/          # JPA AttributeConverter cho enums
 ├── dto/                    # Data Transfer Objects (request / response)
-├── security/               # JWT filter, SecurityConfig, UserDetailsService
+├── converter/              # Entity ↔ DTO converters
+├── security/               # JWT filter (JwtAuthenticationFilter), JwtUtil
 ├── exception/              # Custom exceptions & GlobalExceptionHandler
-└── config/                 # CORS, Mail, OpenAPI config
+└── config/                 # AppConfig (CORS, PasswordEncoder), SecurityConfig
 src/main/resources/
-└── application.yml         # DB, JWT, Mail configuration
+├── application.yaml        # Profile selector (active: local)
+├── application-local.yaml  # Local dev config (DB, JWT, port 8081)
+├── application-cloud.yaml  # Cloud deployment config
+├── data.sql                # Minimal seed data (dev)
+└── mockdata_seed.sql       # Full mock data for testing
 ```
 
-> **Lưu ý:** Tên entity Java dùng PascalCase không có prefix `tbl`.  
+> **Lưu ý:** Tên entity Java dùng PascalCase không có prefix `tbl`.
 > Ví dụ: bảng `tblUserAccount` → entity `UserAccount`; bảng `tblDish` → entity `Dish`.
 
 ---
@@ -241,8 +248,6 @@ tblUserAccount ──1:N──► tblAdminAuditLog  (admin_id)
 | `created_at` | `DATETIME` | DEFAULT NOW() | Ngày tạo |
 | `updated_at` | `DATETIME` | ON UPDATE NOW() | Ngày cập nhật cuối |
 
-> **Business Rule:** Tên món không được trùng lặp (kiểm tra case-insensitive ở tầng Service). Khi `source = 'system'` thì `account_id = NULL`. Khi `source = 'custom'` thì `account_id` phải có giá trị.
-
 ---
 
 #### Bảng `tblNutritionInfo`
@@ -319,8 +324,7 @@ tblUserAccount ──1:N──► tblAdminAuditLog  (admin_id)
 | `created_at` | `DATETIME` | DEFAULT NOW() | Ngày tạo |
 | `updated_at` | `DATETIME` | ON UPDATE NOW() | Ngày cập nhật cuối |
 
-> **Business Rule (cần enforce ở tầng Service):** Một người dùng không được tạo hai kế hoạch cùng `plan_date`. Kiểm tra trùng ngày trước khi `INSERT`.  
-> *Ghi chú: Schema hiện tại không có UNIQUE KEY (account_id, plan_date) — tầng Service phải kiểm tra thủ công bằng query trước khi lưu.*
+> **Business Rule (enforce ở tầng Service):** Một người dùng không được tạo hai kế hoạch cùng `plan_date`. Kiểm tra trùng ngày trước khi `INSERT`.
 
 ---
 
@@ -333,8 +337,8 @@ tblUserAccount ──1:N──► tblAdminAuditLog  (admin_id)
 | `meal_type` | `ENUM('breakfast','lunch','dinner','snack')` | NOT NULL | Loại bữa ăn |
 | `created_at` | `DATETIME` | DEFAULT NOW() | Ngày tạo |
 
-> **Constraint:** `UNIQUE KEY uq_meal_slot (meal_plan_id, meal_type)` — mỗi kế hoạch chỉ có duy nhất một bữa sáng, một bữa trưa, một bữa tối và một bữa phụ.  
-> **Lưu ý khi code:** Tổng calo của bữa ăn **không được lưu** trong bảng này. Phải tính động bằng cách `SUM` các `calories_kcal` trong `tblPortion` theo `meal_id`.
+> **Constraint:** `UNIQUE KEY uq_meal_slot (meal_plan_id, meal_type)` — mỗi kế hoạch chỉ có duy nhất một bữa sáng, một bữa trưa, một bữa tối và một bữa phụ.
+> **Lưu ý:** Tổng calo của bữa ăn **không được lưu** trong bảng này. Phải tính động bằng cách `SUM` các `calories_kcal` trong `tblPortion` theo `meal_id`.
 
 ---
 
@@ -351,7 +355,7 @@ tblUserAccount ──1:N──► tblAdminAuditLog  (admin_id)
 | `carb_g` | `DECIMAL(7,2)` | NULLABLE, tính tự động | Carb thực tế (g) |
 | `fat_g` | `DECIMAL(7,2)` | NULLABLE, tính tự động | Chất béo thực tế (g) |
 
-> ⚠️ **Quan trọng – ON DELETE RESTRICT:** Khác với các bảng khác, `dish_id` trong `tblPortion` dùng `RESTRICT` thay vì `CASCADE`. Nghĩa là **không thể xóa một món ăn đang được dùng trong kế hoạch bữa ăn**. Tầng Service phải kiểm tra và thông báo lỗi rõ ràng trước khi cho phép xóa `tblDish`.
+> ⚠️ **ON DELETE RESTRICT:** Không thể xóa một món ăn đang được dùng trong kế hoạch bữa ăn. Tầng Service phải kiểm tra và thông báo lỗi rõ ràng trước khi cho phép xóa `tblDish`.
 >
 > **Công thức tính khi INSERT/UPDATE:**
 > ```
@@ -374,40 +378,9 @@ tblUserAccount ──1:N──► tblAdminAuditLog  (admin_id)
 
 ---
 
-#### Bảng `tblTemplateMeal`
+#### Bảng `tblTemplateMeal` & `tblTemplatePortion`
 
-| Cột | Kiểu | Ràng buộc | Mô tả |
-|---|---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK, AUTO_INCREMENT | Khóa chính |
-| `template_id` | `BIGINT UNSIGNED` | FK → `tblMealPlanTemplate.id`, CASCADE | Mẫu kế hoạch |
-| `meal_type` | `ENUM('breakfast','lunch','dinner','snack')` | NOT NULL | Loại bữa trong mẫu |
-
----
-
-#### Bảng `tblTemplatePortion`
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-|---|---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK, AUTO_INCREMENT | Khóa chính |
-| `template_meal_id` | `BIGINT UNSIGNED` | FK → `tblTemplateMeal.id`, CASCADE | Bữa ăn trong mẫu |
-| `dish_id` | `BIGINT UNSIGNED` | FK → `tblDish.id`, **RESTRICT** | Món ăn trong mẫu |
-| `quantity_g` | `DECIMAL(8,2)` | NOT NULL | Khẩu phần trong mẫu (gram) |
-
-> **Lưu ý khi code template:** Khi lưu kế hoạch thành mẫu, sao chép từng `Meal` → `TemplateMeal` và từng `Portion` → `TemplatePortion`. **Không** sao chép `plan_date`. Khi áp dụng mẫu vào kế hoạch mới, thực hiện chiều ngược lại.
-
----
-
-#### Bảng `tblAdjustmentSuggestion`
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-|---|---|---|---|
-| `id` | `BIGINT UNSIGNED` | PK, AUTO_INCREMENT | Khóa chính |
-| `account_id` | `BIGINT UNSIGNED` | FK → `tblUserAccount.id`, CASCADE | Người dùng |
-| `meal_plan_id` | `BIGINT UNSIGNED` | FK → `tblMealPlan.id`, SET NULL, NULLABLE | Kế hoạch liên quan |
-| `suggestion_type` | `ENUM('add_dish','reduce_portion','swap_dish')` | NOT NULL | Loại gợi ý |
-| `content` | `TEXT` | NOT NULL | Nội dung gợi ý |
-| `status` | `ENUM('pending','applied','dismissed')` | NOT NULL, DEFAULT `'pending'` | Trạng thái xử lý |
-| `created_at` | `DATETIME` | DEFAULT NOW() | Ngày tạo gợi ý |
+Cấu trúc tương tự `tblMeal` và `tblPortion` nhưng liên kết với `tblMealPlanTemplate`. Khi lưu kế hoạch thành mẫu, sao chép `Meal` → `TemplateMeal` và `Portion` → `TemplatePortion`. **Không** sao chép `plan_date`.
 
 ---
 
@@ -425,8 +398,6 @@ tblUserAccount ──1:N──► tblAdminAuditLog  (admin_id)
 | `submitted_at` | `DATETIME` | DEFAULT NOW() | Ngày gửi |
 | `updated_at` | `DATETIME` | ON UPDATE NOW() | Ngày cập nhật cuối |
 
-> **Lưu ý:** Giá trị `status` trong DB là `'pending'`, `'processing'`, `'resolved'` — **khác** với `'in_progress'` trong một số tài liệu cũ. Khi mapping sang DTO/frontend phải dùng đúng giá trị này.
-
 ---
 
 #### Bảng `tblAdminAuditLog`
@@ -440,8 +411,6 @@ tblUserAccount ──1:N──► tblAdminAuditLog  (admin_id)
 | `target_id` | `BIGINT UNSIGNED` | NOT NULL | ID đối tượng bị tác động |
 | `note` | `TEXT` | NULLABLE | Ghi chú thêm về hành động |
 | `acted_at` | `DATETIME` | DEFAULT NOW() | Thời điểm thực hiện |
-
-> **ON DELETE RESTRICT trên admin_id:** Không thể xóa tài khoản admin khi còn bản ghi nhật ký. Phải soft delete (status='deleted').
 
 ---
 
@@ -464,156 +433,571 @@ tblUserAccount ──1:N──► tblAdminAuditLog  (admin_id)
 
 ### 5.1 Quy ước chung
 
-- **Base URL:** `/api` (dev: `http://localhost:8080/api`)
+- **Base URL:** `/api` — Dev local: `http://localhost:8081/api`
 - **Content-Type:** `application/json`
-- **Authorization:** `Bearer <JWT_TOKEN>` trong header
+- **Authorization:** `Bearer <JWT_TOKEN>` trong header (trừ các endpoint công khai)
 - **Tên endpoint:** kebab-case, danh từ số nhiều
-- **Swagger UI:** `http://localhost:8080/swagger-ui.html`
 - **Phân trang:** query params `?page=0&size=20` (Spring Data mặc định)
+- **Swagger UI:** `http://localhost:8081/swagger-ui.html`
 
-### 5.2 Chuẩn Response lỗi
+### 5.2 Enum Values (chuẩn lowercase – khớp DB)
+
+> **QUAN TRỌNG:** Tất cả giá trị enum trong request/response đều là **lowercase** để khớp với ENUM trong MySQL.
+
+| Enum | Giá trị hợp lệ |
+|---|---|
+| `role` | `"user"`, `"admin"` |
+| `status` | `"active"`, `"locked"`, `"deleted"` |
+| `gender` | `"male"`, `"female"`, `"other"` |
+| `goalType` | `"weight_loss"`, `"muscle_gain"`, `"maintain"` |
+| `activityLevel` | `"low"`, `"medium"`, `"high"` |
+| `source` | `"system"`, `"custom"` |
+| `difficulty` | `"easy"`, `"medium"`, `"hard"` |
+| `mealType` | `"breakfast"`, `"lunch"`, `"dinner"`, `"snack"` |
+| `feedbackStatus` | `"pending"`, `"processing"`, `"resolved"` |
+
+### 5.3 Chuẩn Response
+
+#### Response thành công
+
+```json
+{
+  "field1": "value1",
+  "field2": "value2"
+}
+```
+
+Hoặc mảng:
+
+```json
+[
+  { "id": 1, "field": "value" },
+  { "id": 2, "field": "value" }
+]
+```
+
+#### Response lỗi (GlobalExceptionHandler)
 
 ```json
 {
   "status": 400,
-  "error": "Bad Request",
-  "message": "Validation failed",
-  "errors": { "email": "Email không hợp lệ" },
-  "timestamp": "2026-05-01T10:00:00Z"
+  "message": "Mô tả lỗi cụ thể",
+  "timestamp": 1746345600000
 }
 ```
 
 | HTTP Status | Khi nào |
 |---|---|
-| `400 Bad Request` | Validation failed; thiếu trường bắt buộc |
+| `200 OK` | Thành công (GET, PUT, PATCH) |
+| `201 Created` | Tạo mới thành công (POST) |
+| `204 No Content` | Xóa thành công (DELETE) |
+| `400 Bad Request` | Validation failed; thiếu trường bắt buộc; dữ liệu không hợp lệ |
 | `401 Unauthorized` | Chưa đăng nhập hoặc JWT hết hạn |
-| `403 Forbidden` | Không đủ quyền (user cố truy cập admin endpoint) |
+| `403 Forbidden` | Không đủ quyền |
 | `404 Not Found` | Tài nguyên không tồn tại |
 | `409 Conflict` | Trùng dữ liệu (email, username, plan_date cùng ngày) |
-| `410 Gone` | Tài khoản bị xóa (status='deleted') |
-| `423 Locked` | Tài khoản bị khóa (status='locked') |
 | `500 Internal Server Error` | Lỗi server — không trả stack trace ra FE |
 
 ---
 
-### 5.3 Module 1 – Quản lý tài khoản
+### 5.4 Module 1 – Quản lý tài khoản
 
-#### Auth
+#### 5.4.1 Đăng ký – `POST /auth/register`
 
-| Method | Endpoint | Mô tả | Auth |
-|---|---|---|---|
-| `POST` | `/auth/register` | Đăng ký tài khoản mới | Không |
-| `POST` | `/auth/login` | Đăng nhập; trả JWT | Không |
-| `POST` | `/auth/logout` | Đăng xuất | USER, ADMIN |
-| `POST` | `/auth/forgot-password` | Gửi OTP về email | Không |
-| `POST` | `/auth/verify-otp` | Xác minh OTP | Không |
-| `POST` | `/auth/reset-password` | Đặt lại mật khẩu bằng token | Không |
-| `PUT` | `/auth/change-password` | Đổi mật khẩu (biết mật khẩu cũ) | USER, ADMIN |
+**Auth:** Không yêu cầu
 
-**POST `/auth/login` – Request:**
-```json
-{ "username": "user123", "password": "securePass" }
-```
-
-**POST `/auth/login` – Response 200:**
+**Request Body:**
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiJ9...",
-  "tokenType": "Bearer",
-  "expiresIn": 86400,
-  "role": "user",
-  "userId": 42
+  "username": "tester1",
+  "email": "tester1@example.com",
+  "password": "P@ssw0rd",
+  "passwordConfirm": "P@ssw0rd"
 }
 ```
 
-> **Lưu ý:** Giá trị `role` trả về là `"user"` hoặc `"admin"` (lowercase) — khớp với ENUM trong DB.
-
-#### Profile
-
-| Method | Endpoint | Mô tả | Auth |
+| Trường | Kiểu | Bắt buộc | Ràng buộc |
 |---|---|---|---|
-| `GET` | `/users/me` | Lấy thông tin cá nhân hiện tại | USER, ADMIN |
-| `PUT` | `/users/me/profile` | Cập nhật hồ sơ sức khỏe | USER, ADMIN |
-| `GET` | `/users/me/health-goal` | Lấy mục tiêu sức khỏe | USER |
-| `PUT` | `/users/me/health-goal` | Tạo / cập nhật mục tiêu sức khỏe | USER |
+| `username` | String | ✅ | 4–50 ký tự, a-z/0-9/_, duy nhất |
+| `email` | String | ✅ | Đúng format email, duy nhất |
+| `password` | String | ✅ | Tối thiểu 6 ký tự |
+| `passwordConfirm` | String | ✅ | Phải khớp với `password` |
+
+**Response 200 OK:**
+```json
+{
+  "id": 1,
+  "username": "tester1",
+  "email": "tester1@example.com",
+  "role": "user",
+  "status": "active"
+}
+```
+
+**Response lỗi:**
+- `400` — `"Passwords do not match"` / `"Username already exists"` / `"Email already exists"`
 
 ---
 
-### 5.4 Module 2 – Quản lý kế hoạch bữa ăn
+#### 5.4.2 Đăng nhập – `POST /auth/login`
 
-| Method | Endpoint | Mô tả | Auth |
-|---|---|---|---|
-| `GET` | `/meal-plans?startDate=&endDate=` | Lấy danh sách theo khoảng ngày (default: tuần hiện tại) | USER |
-| `GET` | `/meal-plans/{id}` | Lấy chi tiết kế hoạch (gồm meals + portions) | USER |
-| `POST` | `/meal-plans` | Tạo kế hoạch bữa ăn mới | USER |
-| `PUT` | `/meal-plans/{id}` | Cập nhật kế hoạch | USER |
-| `DELETE` | `/meal-plans/{id}` | Xóa kế hoạch (cascade meals + portions) | USER |
-| `POST` | `/meal-plans/{planId}/meals/{mealType}/portions` | Thêm khẩu phần vào bữa | USER |
-| `PUT` | `/meal-plans/{planId}/meals/{mealType}/portions/{portionId}` | Cập nhật khẩu phần | USER |
-| `DELETE` | `/meal-plans/{planId}/meals/{mealType}/portions/{portionId}` | Xóa khẩu phần | USER |
-| `GET` | `/meal-plan-templates` | Lấy danh sách mẫu của user | USER |
-| `POST` | `/meal-plan-templates` | Lưu kế hoạch thành mẫu | USER |
-| `DELETE` | `/meal-plan-templates/{id}` | Xóa mẫu | USER |
+**Auth:** Không yêu cầu
 
-**POST `/meal-plans` – Request:**
+**Request Body:**
 ```json
 {
-  "planDate": "2026-05-10",
-  "planName": "Thực đơn tuần 20",
-  "meals": [
-    {
-      "mealType": "breakfast",
-      "portions": [
-        { "dishId": 5, "quantityG": 200 },
-        { "dishId": 12, "quantityG": 150 }
-      ]
-    },
-    { "mealType": "lunch",   "portions": [] },
-    { "mealType": "dinner",  "portions": [] },
-    { "mealType": "snack",   "portions": [] }
-  ]
+  "username": "tester1",
+  "password": "P@ssw0rd"
 }
 ```
 
-> **Lưu ý:** `mealType` phải là lowercase (`"breakfast"`, `"lunch"`, `"dinner"`, `"snack"`) — khớp với ENUM trong DB.
+**Response 200 OK:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "user": {
+    "id": 1,
+    "username": "tester1",
+    "email": "tester1@example.com",
+    "role": "user",
+    "status": "active"
+  }
+}
+```
+
+> **Lưu ý FE:** Lưu `token` vào Zustand store (memory), KHÔNG lưu vào `localStorage`. Token có hiệu lực 24 giờ (86400000ms).
+
+**Response lỗi:**
+- `400` — `"Invalid username or password"` (sai thông tin đăng nhập)
+
+---
+
+#### 5.4.3 Lấy thông tin user – `GET /auth/user/{id}`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Path Params:** `id` — ID của tài khoản
+
+**Response 200 OK:**
+```json
+{
+  "id": 1,
+  "username": "tester1",
+  "email": "tester1@example.com",
+  "role": "user",
+  "status": "active"
+}
+```
+
+**Response lỗi:**
+- `404` — `"UserAccount not found with id 1"`
+
+---
+
+#### 5.4.4 Lấy hồ sơ sức khỏe – `GET /health-profile/{accountId}`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Path Params:** `accountId` — ID tài khoản
+
+**Response 200 OK:**
+```json
+{
+  "id": 1,
+  "fullName": "Nguyen Van A",
+  "age": 30,
+  "gender": "male",
+  "heightCm": 175.00,
+  "weightKg": 70.00,
+  "avatarUrl": "https://example.com/avatar.jpg"
+}
+```
+
+**Response lỗi:**
+- `404` — `"Health profile not found for account 1"`
+
+---
+
+#### 5.4.5 Tạo/cập nhật hồ sơ sức khỏe – `POST /health-profile/{accountId}`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Path Params:** `accountId` — ID tài khoản
+
+**Request Body:**
+```json
+{
+  "fullName": "Nguyen Van A",
+  "age": 30,
+  "gender": "male",
+  "heightCm": 175.00,
+  "weightKg": 70.00,
+  "avatarUrl": "https://example.com/avatar.jpg"
+}
+```
+
+| Trường | Kiểu | Bắt buộc | Ràng buộc |
+|---|---|---|---|
+| `fullName` | String | ❌ | Tối đa 100 ký tự |
+| `age` | Integer | ❌ | 1–120 |
+| `gender` | String | ❌ | `"male"` / `"female"` / `"other"` |
+| `heightCm` | Decimal | ❌ | 50–300 |
+| `weightKg` | Decimal | ❌ | 10–500 |
+| `avatarUrl` | String | ❌ | URL hợp lệ, tối đa 500 ký tự |
+
+**Response 200 OK:** (trả về DTO đã lưu)
+```json
+{
+  "id": 1,
+  "fullName": "Nguyen Van A",
+  "age": 30,
+  "gender": "male",
+  "heightCm": 175.00,
+  "weightKg": 70.00,
+  "avatarUrl": "https://example.com/avatar.jpg"
+}
+```
 
 ---
 
 ### 5.5 Module 3 – Quản lý món ăn
 
-| Method | Endpoint | Mô tả | Auth |
-|---|---|---|---|
-| `GET` | `/dishes?keyword=&categoryId=&minCal=&maxCal=&page=&size=` | Tìm kiếm + lọc (phân trang) | Không (Guest xem được) |
-| `GET` | `/dishes/{id}` | Chi tiết món ăn (kèm nutrition + ingredients) | Không |
-| `POST` | `/dishes` | Thêm món tùy chỉnh (source=custom) | USER |
-| `PUT` | `/dishes/{id}` | Sửa món tùy chỉnh (chỉ chủ sở hữu) | USER |
-| `DELETE` | `/dishes/{id}` | Xóa món tùy chỉnh | USER |
-| `GET` | `/dish-categories` | Lấy tất cả danh mục | Không |
-| `GET` | `/users/me/favorites` | Lấy danh sách yêu thích | USER |
-| `POST` | `/users/me/favorites/{dishId}` | Thêm vào yêu thích | USER |
-| `DELETE` | `/users/me/favorites/{dishId}` | Bỏ khỏi yêu thích | USER |
-| `POST` | `/dishes/{id}/ratings` | Đánh giá món ăn | USER |
-| `GET` | `/dishes/{id}/ratings` | Lấy danh sách đánh giá | Không |
+#### 5.5.1 Lấy tất cả món ăn – `GET /dishes`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Response 200 OK:**
+```json
+[
+  {
+    "id": 1,
+    "name": "Grilled Chicken",
+    "categoryId": 1,
+    "imageUrl": "https://example.com/chicken.jpg",
+    "source": "system",
+    "difficulty": "easy",
+    "totalTimeMin": 45
+  },
+  {
+    "id": 2,
+    "name": "Pasta Primavera",
+    "categoryId": 1,
+    "imageUrl": "https://example.com/pasta.jpg",
+    "source": "system",
+    "difficulty": "medium",
+    "totalTimeMin": 30
+  }
+]
+```
 
 ---
 
-### 5.6 Module 4 – Admin
+#### 5.5.2 Lấy món ăn theo ID – `GET /dishes/{id}`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Path Params:** `id` — ID món ăn
+
+**Response 200 OK:**
+```json
+{
+  "id": 1,
+  "name": "Grilled Chicken",
+  "categoryId": 1,
+  "imageUrl": "https://example.com/chicken.jpg",
+  "source": "system",
+  "difficulty": "easy",
+  "totalTimeMin": 45
+}
+```
+
+**Response lỗi:**
+- `404` — `"Dish not found with id 1"`
+
+---
+
+#### 5.5.3 Lấy món ăn hệ thống – `GET /dishes/system`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Response 200 OK:** (mảng các món có `source = "system"`)
+```json
+[
+  {
+    "id": 1,
+    "name": "Grilled Chicken",
+    "categoryId": 1,
+    "imageUrl": "https://example.com/chicken.jpg",
+    "source": "system",
+    "difficulty": "easy",
+    "totalTimeMin": 45
+  }
+]
+```
+
+---
+
+#### 5.5.4 Lấy món ăn tùy chỉnh của user – `GET /dishes/account/{accountId}`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Path Params:** `accountId` — ID tài khoản
+
+**Response 200 OK:** (mảng các món có `source = "custom"` thuộc `accountId`)
+```json
+[
+  {
+    "id": 16,
+    "name": "Salad ức gà tự làm",
+    "categoryId": 3,
+    "imageUrl": null,
+    "source": "custom",
+    "difficulty": "easy",
+    "totalTimeMin": 20
+  }
+]
+```
+
+---
+
+#### 5.5.5 Tạo món ăn mới – `POST /dishes`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Request Body:**
+```json
+{
+  "name": "Grilled Chicken",
+  "categoryId": 1,
+  "imageUrl": "https://example.com/chicken.jpg",
+  "source": "system",
+  "difficulty": "easy",
+  "totalTimeMin": 45
+}
+```
+
+| Trường | Kiểu | Bắt buộc | Ràng buộc |
+|---|---|---|---|
+| `name` | String | ✅ | Không trùng (case-insensitive), tối đa 200 ký tự |
+| `categoryId` | Integer | ❌ | ID danh mục hợp lệ |
+| `imageUrl` | String | ❌ | URL hợp lệ, tối đa 500 ký tự |
+| `source` | String | ❌ | `"system"` / `"custom"`, mặc định `"system"` |
+| `difficulty` | String | ❌ | `"easy"` / `"medium"` / `"hard"` |
+| `totalTimeMin` | Integer | ❌ | Số nguyên dương (phút) |
+
+**Response 200 OK:**
+```json
+{
+  "id": 3,
+  "name": "Grilled Chicken",
+  "categoryId": 1,
+  "imageUrl": "https://example.com/chicken.jpg",
+  "source": "system",
+  "difficulty": "easy",
+  "totalTimeMin": 45
+}
+```
+
+**Response lỗi:**
+- `400` — `"Dish name is required"`
+
+---
+
+#### 5.5.6 Cập nhật món ăn – `PUT /dishes/{id}`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Path Params:** `id` — ID món ăn
+
+**Request Body:**
+```json
+{
+  "name": "Grilled Chicken (updated)",
+  "imageUrl": "https://example.com/chicken2.jpg",
+  "difficulty": "medium",
+  "totalTimeMin": 50
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "id": 1,
+  "name": "Grilled Chicken (updated)",
+  "categoryId": 1,
+  "imageUrl": "https://example.com/chicken2.jpg",
+  "source": "system",
+  "difficulty": "medium",
+  "totalTimeMin": 50
+}
+```
+
+**Response lỗi:**
+- `404` — `"Dish not found with id 1"`
+
+---
+
+#### 5.5.7 Xóa món ăn – `DELETE /dishes/{id}`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Path Params:** `id` — ID món ăn
+
+> **Lưu ý:** Nếu món ăn đang được sử dụng trong `tblPortion`, service sẽ xóa toàn bộ portions liên quan trước khi xóa món (xem `DishServiceImpl.delete()`).
+
+**Response 204 No Content** (không có body)
+
+**Response lỗi:**
+- `404` — `"Dish not found with id 1"`
+
+---
+
+### 5.6 Module 2 – Quản lý kế hoạch bữa ăn
+
+#### 5.6.1 Lấy kế hoạch theo tài khoản – `GET /meal-plans/account/{accountId}`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Path Params:** `accountId` — ID tài khoản
+
+**Response 200 OK:**
+```json
+[
+  {
+    "id": 1,
+    "planName": "Lunch Plan",
+    "planDate": "2026-05-03"
+  },
+  {
+    "id": 2,
+    "planName": "Dinner Plan",
+    "planDate": "2026-05-04"
+  }
+]
+```
+
+---
+
+#### 5.6.2 Lấy kế hoạch theo ngày – `GET /meal-plans/account/{accountId}/date/{planDate}`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Path Params:**
+- `accountId` — ID tài khoản
+- `planDate` — Ngày cần lấy, định dạng `yyyy-MM-dd` (ví dụ: `2026-05-03`)
+
+**Response 200 OK:**
+```json
+{
+  "id": 1,
+  "planName": "Lunch Plan",
+  "planDate": "2026-05-03"
+}
+```
+
+**Response lỗi:**
+- `404` — `"MealPlan not found for account 1 on 2026-05-03"`
+
+---
+
+#### 5.6.3 Tạo kế hoạch bữa ăn – `POST /meal-plans?accountId={accountId}`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Query Params:** `accountId` — ID tài khoản (bắt buộc)
+
+**Request Body:**
+```json
+{
+  "planName": "Lunch Plan",
+  "planDate": "2026-05-03"
+}
+```
+
+| Trường | Kiểu | Bắt buộc | Ràng buộc |
+|---|---|---|---|
+| `planName` | String | ❌ | Tối đa 200 ký tự |
+| `planDate` | String | ✅ | Định dạng `yyyy-MM-dd`; không trùng ngày đã có kế hoạch |
+
+**Response 200 OK:**
+```json
+{
+  "id": 3,
+  "planName": "Lunch Plan",
+  "planDate": "2026-05-03"
+}
+```
+
+**Response lỗi:**
+- `400` — `"MealPlan id must not be null"` (thiếu accountId)
+- `404` — `"UserAccount not found with id 1"` (accountId không tồn tại)
+
+---
+
+#### 5.6.4 Cập nhật kế hoạch bữa ăn – `PUT /meal-plans/{id}`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Path Params:** `id` — ID kế hoạch
+
+**Request Body:**
+```json
+{
+  "planName": "Lunch Plan (updated)",
+  "planDate": "2026-05-03"
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "id": 1,
+  "planName": "Lunch Plan (updated)",
+  "planDate": "2026-05-03"
+}
+```
+
+**Response lỗi:**
+- `404` — `"MealPlan not found with id 1"`
+
+---
+
+#### 5.6.5 Xóa kế hoạch bữa ăn – `DELETE /meal-plans/{id}`
+
+**Auth:** Yêu cầu Bearer Token
+
+**Path Params:** `id` — ID kế hoạch
+
+> **Lưu ý:** Cascade DELETE sẽ tự động xóa `tblMeal` và `tblPortion` liên quan.
+
+**Response 204 No Content** (không có body)
+
+**Response lỗi:**
+- `404` — `"MealPlan not found with id 1"`
+
+---
+
+### 5.7 Bảng tổng hợp tất cả Endpoints
 
 | Method | Endpoint | Mô tả | Auth |
 |---|---|---|---|
-| `GET` | `/admin/users?keyword=&status=&page=&size=` | Danh sách người dùng | ADMIN |
-| `GET` | `/admin/users/{id}` | Chi tiết người dùng | ADMIN |
-| `PATCH` | `/admin/users/{id}/lock` | Khóa tài khoản (status=locked) | ADMIN |
-| `PATCH` | `/admin/users/{id}/unlock` | Mở khóa (status=active) | ADMIN |
-| `DELETE` | `/admin/users/{id}` | Soft delete (status=deleted) | ADMIN |
-| `GET` | `/admin/dishes?keyword=&categoryId=&page=&size=` | Danh sách tất cả món ăn | ADMIN |
-| `POST` | `/admin/dishes` | Thêm món hệ thống (source=system) | ADMIN |
-| `PUT` | `/admin/dishes/{id}` | Sửa bất kỳ món ăn nào | ADMIN |
-| `DELETE` | `/admin/dishes/{id}` | Xóa món ăn (kiểm tra RESTRICT trước) | ADMIN |
-| `POST` | `/admin/dishes/{id}/image` | Upload ảnh (multipart/form-data) | ADMIN |
-| `GET` | `/admin/statistics?startDate=&endDate=` | Thống kê hệ thống | ADMIN |
-| `GET` | `/admin/feedbacks?status=&page=&size=` | Danh sách phản hồi | ADMIN |
-| `PATCH` | `/admin/feedbacks/{id}/status` | Cập nhật trạng thái phản hồi | ADMIN |
+| `POST` | `/auth/register` | Đăng ký tài khoản mới | Không |
+| `POST` | `/auth/login` | Đăng nhập; trả JWT + user info | Không |
+| `GET` | `/auth/user/{id}` | Lấy thông tin tài khoản theo ID | Bearer |
+| `GET` | `/health-profile/{accountId}` | Lấy hồ sơ sức khỏe | Bearer |
+| `POST` | `/health-profile/{accountId}` | Tạo/cập nhật hồ sơ sức khỏe | Bearer |
+| `GET` | `/dishes` | Lấy toàn bộ món ăn | Bearer |
+| `GET` | `/dishes/{id}` | Lấy chi tiết một món ăn | Bearer |
+| `GET` | `/dishes/system` | Lấy món ăn hệ thống | Bearer |
+| `GET` | `/dishes/account/{accountId}` | Lấy món tùy chỉnh của user | Bearer |
+| `POST` | `/dishes` | Tạo món ăn mới | Bearer |
+| `PUT` | `/dishes/{id}` | Cập nhật thông tin món ăn | Bearer |
+| `DELETE` | `/dishes/{id}` | Xóa món ăn | Bearer |
+| `GET` | `/meal-plans/account/{accountId}` | Lấy danh sách kế hoạch của user | Bearer |
+| `GET` | `/meal-plans/account/{accountId}/date/{planDate}` | Lấy kế hoạch theo ngày cụ thể | Bearer |
+| `POST` | `/meal-plans?accountId={id}` | Tạo kế hoạch bữa ăn mới | Bearer |
+| `PUT` | `/meal-plans/{id}` | Cập nhật kế hoạch | Bearer |
+| `DELETE` | `/meal-plans/{id}` | Xóa kế hoạch (cascade) | Bearer |
 
 ---
 
@@ -666,7 +1050,7 @@ muscle_gain  → daily_calories_kcal = TDEE + 300
 maintain     → daily_calories_kcal = TDEE
 ```
 
-Kết quả được lưu vào `tblHealthGoal.daily_calories_kcal` sau khi người dùng lưu mục tiêu.
+Kết quả lưu vào `tblHealthGoal.daily_calories_kcal`.
 
 ---
 
@@ -678,7 +1062,7 @@ Kết quả được lưu vào `tblHealthGoal.daily_calories_kcal` sau khi ngư�
 | OTP hết hạn 5 phút | `AuthService` | So sánh `expires_at` với `NOW()` và kiểm tra `used=0` |
 | Không trùng plan_date | `MealPlanService` | Query trước khi INSERT; ném `409 Conflict` |
 | Cascade xóa kế hoạch | DB (CASCADE) | Xóa `tblMealPlan` → tự xóa `tblMeal` → `tblPortion` |
-| Không xóa dish đang dùng | `DishService` | `ON DELETE RESTRICT`; bắt `DataIntegrityViolationException` |
+| Không xóa dish đang dùng | `DishService` | Hiện tại: xóa portions trước rồi xóa dish. Cân nhắc đổi sang báo lỗi `409` |
 | Tên món không trùng | `DishService` | Kiểm tra case-insensitive; ném `409 Conflict` |
 | Chỉ sửa/xóa món của mình | `DishService` | So sánh `dish.account_id` với JWT `userId` |
 | Chỉ sửa/xóa KH của mình | `MealPlanService` | So sánh `mealPlan.account_id` với JWT `userId` |
@@ -695,7 +1079,7 @@ Kết quả được lưu vào `tblHealthGoal.daily_calories_kcal` sau khi ngư�
 
 | Component | Vị trí | Trách nhiệm |
 |---|---|---|
-| `LoginPage` | `features/auth/` | Form đăng nhập; gọi POST /auth/login; lưu JWT |
+| `LoginPage` | `features/auth/` | Form đăng nhập; gọi `POST /auth/login`; lưu JWT |
 | `RegisterPage` | `features/auth/` | Form đăng ký; validate username/email/password |
 | `ForgotPasswordPage` | `features/auth/` | 3 bước: nhập email → nhập OTP → đặt MK mới |
 | `ProtectedRoute` | `router/` | HOC kiểm tra JWT; redirect /login nếu chưa đăng nhập |
@@ -714,7 +1098,7 @@ Kết quả được lưu vào `tblHealthGoal.daily_calories_kcal` sau khi ngư�
 | `MealSlotFrame` | `features/mealplan/` | Khung bữa ăn; danh sách khẩu phần; nút thêm/xóa |
 | `AddDishModal` | `features/mealplan/` | Tìm kiếm + multi-select món; nhập khẩu phần; preview dinh dưỡng |
 | `NutritionSummaryBar` | `features/mealplan/` | Thanh tiến độ calo & macro so với mục tiêu (realtime) |
-| `SaveTemplateModal` | `features/mealplan/` | Nhập tên mẫu; gọi POST /meal-plan-templates |
+| `SaveTemplateModal` | `features/mealplan/` | Nhập tên mẫu; gọi `POST /meal-plan-templates` |
 
 #### Dish & Admin
 
@@ -797,36 +1181,32 @@ interface UserStore {
 | Biện pháp | Cách thực hiện | Lưu ý khi code |
 |---|---|---|
 | JWT Authentication | Sau đăng nhập trả JWT; FE lưu trong Zustand (memory) | Không lưu vào `localStorage` (XSS risk) |
-| Password Hashing | BCryptPasswordEncoder strength=12 | Không lưu plain text; không hiển thị hash |
-| RBAC | Spring Security kiểm tra role từ JWT claim | FE ẩn menu Admin nhưng BE vẫn phải kiểm tra |
-| CORS | Chỉ cho phép origin FE dev/prod | Không dùng `allowedOrigins=*` trong production |
-| Input Sanitization | Jakarta Bean Validation; Parameterized Query | Không string concat trong JPQL/SQL |
-| OTP Security | 6 chữ số; hết hạn 5 phút; `used=1` sau khi dùng | Rate-limit `/auth/forgot-password` |
-| File Upload | Kiểm tra MIME type thực; giới hạn 5MB; JPG/JPEG/PNG | Lưu ngoài webroot; trả URL qua API |
+| Password Hashing | BCryptPasswordEncoder | Không lưu plain text; không hiển thị hash |
+| RBAC | Spring Security kiểm tra role từ JWT claim (`ROLE_USER`, `ROLE_ADMIN`) | FE ẩn menu Admin nhưng BE vẫn phải kiểm tra |
+| CORS | `AppConfig.addCorsMappings` — hiện cho phép `*` (dev); production chỉ cho phép FE domain | Cập nhật trước khi deploy |
+| Input Sanitization | Jakarta Bean Validation; Parameterized Query (JPA) | Không string concat trong JPQL/SQL |
+| OTP Security | 6–64 ký tự; hết hạn 5 phút; `used=1` sau khi dùng | Rate-limit endpoint forgot-password |
+| File Upload | Kiểm tra MIME type; giới hạn 5MB; JPG/JPEG/PNG | Lưu ngoài webroot; trả URL qua API |
 | Admin Audit Log | Insert `tblAdminAuditLog` sau mỗi hành động | Không cho phép admin xóa log của mình |
 
 ---
 
 ### 8.2 Validation
 
-Tất cả validation thực hiện ở **cả hai tầng**:
-- **Frontend:** React Hook Form + Zod (realtime, trước khi gửi request)
-- **Backend:** Jakarta Bean Validation (đảm bảo dù FE bị bypass)
-
 | Trường | Màn hình | Quy tắc | Thông báo lỗi |
 |---|---|---|---|
-| `username` | Đăng ký | Không trống; 4–50 ký tự; a-z, 0-9, _ | "Username phải 4–50 ký tự" |
+| `username` | Đăng ký | Không trống; 4–50 ký tự | "Username phải 4–50 ký tự" |
 | `email` | Đăng ký / Quên MK | Không trống; đúng format; chưa tồn tại | "Email không hợp lệ hoặc đã dùng" |
 | `password` | Đăng ký / Đặt lại MK | Tối thiểu 6 ký tự; khớp confirmPassword | "Mật khẩu quá ngắn hoặc không khớp" |
 | `age` | Hồ sơ | Số nguyên dương; 1–120 | "Tuổi không hợp lệ" |
-| `height_cm` | Hồ sơ | Số thực dương; 50–300 | "Chiều cao không hợp lệ" |
-| `weight_kg` | Hồ sơ | Số thực dương; 10–500 | "Cân nặng không hợp lệ" |
-| `daily_calories_kcal` | Mục tiêu | Số dương; 500–10000 | "Calo mục tiêu phải trong khoảng 500–10000" |
-| `plan_date` | Tạo kế hoạch | Không trống; yyyy-MM-dd; không trùng ngày cũ | "Ngày không hợp lệ hoặc đã có kế hoạch" |
-| `quantity_g` | Thêm món | Số thực; > 0; ≤ 10000 | "Khẩu phần phải lớn hơn 0" |
+| `heightCm` | Hồ sơ | Số thực dương; 50–300 | "Chiều cao không hợp lệ" |
+| `weightKg` | Hồ sơ | Số thực dương; 10–500 | "Cân nặng không hợp lệ" |
+| `dailyCaloriesKcal` | Mục tiêu | Số dương; 500–10000 | "Calo mục tiêu phải trong khoảng 500–10000" |
+| `planDate` | Tạo kế hoạch | Không trống; yyyy-MM-dd; không trùng ngày cũ | "Ngày không hợp lệ hoặc đã có kế hoạch" |
+| `quantityG` | Thêm món | Số thực; > 0; ≤ 10000 | "Khẩu phần phải lớn hơn 0" |
 | `dish.name` | Thêm/sửa món | Không trống; ≤ 200 ký tự; không trùng | "Tên món đã tồn tại" |
 | `score` (rating) | Đánh giá | Số nguyên; 1–5 | "Điểm đánh giá phải từ 1 đến 5" |
-| `template_name` | Lưu mẫu | Không trống; ≤ 200 ký tự | "Tên mẫu không được để trống" |
+| `templateName` | Lưu mẫu | Không trống; ≤ 200 ký tự | "Tên mẫu không được để trống" |
 | `token` (OTP) | Quên MK | 6 chữ số; còn hạn; `used=0` | "OTP không đúng hoặc đã hết hạn" |
 | Image upload | Admin | JPG/JPEG/PNG; ≤ 5MB | "File ảnh không đúng định dạng hoặc quá lớn" |
 
@@ -836,14 +1216,14 @@ Tất cả validation thực hiện ở **cả hai tầng**:
 
 ### 9.1 Hiệu năng
 - Tất cả API phản hồi < 3 giây điều kiện bình thường
-- Endpoint GET /dishes phân trang, tối đa 20 items/trang
+- Endpoint `GET /dishes` phân trang, tối đa 20 items/trang
 - Tải trang thống kê admin ≤ 5 giây
 - Tính dinh dưỡng realtime trên FE không block UI (`useMemo`/`useCallback`)
 
 ### 9.2 Bảo mật
-- JWT hết hạn sau 24 giờ; không lưu vào localStorage
-- BCrypt strength=12 cho tất cả mật khẩu
-- CORS chỉ cho phép origin FE domain
+- JWT hết hạn sau 24 giờ (86400000ms); không lưu vào localStorage
+- BCrypt cho tất cả mật khẩu
+- CORS chỉ cho phép origin FE domain (production)
 - Rate limiting: tối đa 5 request/phút/IP cho `/auth/forgot-password`
 
 ### 9.3 Khả năng sử dụng
@@ -866,50 +1246,48 @@ Tất cả validation thực hiện ở **cả hai tầng**:
 - **Unit Test (BE):** JUnit 5 + Mockito cho tất cả Service classes
 - **Integration Test (BE):** MockMvc cho Controller layer
 - **Manual Test:** Theo từng Test Case trong tài liệu Design
-- **API Test:** Postman Collection cho tất cả endpoint
+- **API Test:** Postman Collection tại `docs/postman_collection.json`
 
-### 10.2 Test Case – UC01 Đăng ký
+### 10.2 Test Case – UC01 Đăng ký (`POST /auth/register`)
 
 | # | Kịch bản | Input | Kết quả mong đợi |
 |---|---|---|---|
-| 1 | Thành công | username=user1, email=a@b.com, pass=abc123 | 201; tài khoản lưu DB |
-| 2 | Email đã tồn tại | email đã có trong DB | 409; "Email đã được sử dụng" |
-| 3 | Username đã tồn tại | username đã có | 409; "Username đã tồn tại" |
-| 4 | Email sai định dạng | email='notanemail' | 400; field error tại email |
+| 1 | Thành công | username=tester1, email=a@b.com, password=abc123, passwordConfirm=abc123 | 200; tài khoản lưu DB; trả `UserAccountDTO` |
+| 2 | Email đã tồn tại | email đã có trong DB | 400; `"Email already exists"` |
+| 3 | Username đã tồn tại | username đã có | 400; `"Username already exists"` |
+| 4 | Password không khớp | passwordConfirm ≠ password | 400; `"Passwords do not match"` |
 | 5 | Password < 6 ký tự | password='abc' | 400; field error tại password |
 | 6 | Thiếu trường bắt buộc | username='' | 400; field error tại username |
 
-### 10.3 Test Case – UC02 Đăng nhập
+### 10.3 Test Case – UC02 Đăng nhập (`POST /auth/login`)
 
 | # | Kịch bản | Input | Kết quả mong đợi |
 |---|---|---|---|
-| 1 | Thành công | Đúng username/password | 200; JWT token; role trả về |
-| 2 | Sai mật khẩu | password sai | 401; "Thông tin đăng nhập không đúng" |
-| 3 | TK bị khóa | status='locked' | 423; "Tài khoản đã bị khóa" |
-| 4 | TK bị xóa | status='deleted' | 410; "Tài khoản không tồn tại" |
-| 5 | Sai MK 5 lần | 5 lần sai liên tiếp | 423; TK tự động bị khóa |
-| 6 | Để trống username | username='' | 400; field error |
+| 1 | Thành công | Đúng username/password | 200; trả `token` + `user` object |
+| 2 | Sai mật khẩu | password sai | 400; `"Invalid username or password"` |
+| 3 | Username không tồn tại | username chưa đăng ký | 400; `"Invalid username or password"` |
+| 4 | Để trống username | username='' | 400; field error |
 
-### 10.4 Test Case – UC07 Tạo kế hoạch bữa ăn
+### 10.4 Test Case – UC07 Tạo kế hoạch bữa ăn (`POST /meal-plans?accountId=1`)
 
 | # | Kịch bản | Input | Kết quả mong đợi |
 |---|---|---|---|
-| 1 | Thành công | planDate hợp lệ, các bữa hợp lệ | 201; kế hoạch lưu DB; hiện trên lịch |
-| 2 | Trùng ngày | planDate đã có kế hoạch | 409; "Ngày đã có kế hoạch" |
-| 3 | Thiếu planDate | planDate=null | 400; field error tại planDate |
-| 4 | Tạo từ mẫu | templateId hợp lệ | 201; món ăn từ mẫu điền vào bữa |
-| 5 | Khẩu phần âm | quantityG=-100 | 400; field error tại quantityG |
+| 1 | Thành công | planDate hợp lệ, chưa có kế hoạch ngày đó | 200; kế hoạch lưu DB; trả `MealPlanDTO` |
+| 2 | Thiếu accountId | Không truyền query param | 400; `"MealPlan id must not be null"` |
+| 3 | accountId không tồn tại | accountId=9999 | 404; `"UserAccount not found with id 9999"` |
+| 4 | Thiếu planDate | planDate=null | 500 / 400; thiếu trường bắt buộc |
+| 5 | planDate sai định dạng | planDate="03-05-2026" | 400; lỗi parse LocalDate |
 
-### 10.5 Test Case – UC17 Admin quản lý món ăn
+### 10.5 Test Case – Quản lý món ăn (CRUD `/dishes`)
 
-| # | Kịch bản | Input | Kết quả mong đợi |
+| # | Kịch bản | Endpoint | Kết quả mong đợi |
 |---|---|---|---|
-| 1 | Thêm món mới | Tên chưa tồn tại, dinh dưỡng hợp lệ | 201; món lưu DB; danh sách làm mới |
-| 2 | Thêm tên trùng | Tên đã có (case-insensitive) | 409; "Tên món đã tồn tại" |
-| 3 | Sửa món thành công | Dish tồn tại, data hợp lệ | 200; DB cập nhật |
-| 4 | Xóa món không dùng | Dish không có trong tblPortion | 200; xóa thành công |
-| 5 | Xóa món đang dùng | Dish có record trong tblPortion | 409; "Món đang được dùng trong kế hoạch" |
-| 6 | Upload ảnh > 5MB | File 6MB | 400; "File quá lớn" |
+| 1 | Lấy toàn bộ món ăn | `GET /dishes` | 200; mảng DishDTO |
+| 2 | Lấy món không tồn tại | `GET /dishes/9999` | 404; `"Dish not found with id 9999"` |
+| 3 | Tạo món mới hợp lệ | `POST /dishes` | 200; DishDTO mới |
+| 4 | Tạo món thiếu tên | `POST /dishes` body không có `name` | 400; `"Dish name is required"` |
+| 5 | Xóa món hợp lệ | `DELETE /dishes/{id}` | 204 No Content |
+| 6 | Xóa món không tồn tại | `DELETE /dishes/9999` | 404; `"Dish not found with id 9999"` |
 
 ---
 
@@ -953,60 +1331,44 @@ docs(api):       update swagger docs for meal-plan endpoint
 
 ## XII. Cấu hình môi trường
 
-### 12.1 Backend – `application.yml`
+### 12.1 Backend – `application-local.yaml`
 
 ```yaml
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/mealplanner_db?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&characterEncoding=UTF-8
+    url: jdbc:mysql://localhost:3306/meal_planner_system?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh&characterEncoding=UTF-8
     username: root
-    password: YOUR_PASSWORD
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    password: 123456
   jpa:
     hibernate:
-      ddl-auto: validate        # 'update' khi dev, 'validate' khi production
-    show-sql: false
-    properties:
-      hibernate.dialect: org.hibernate.dialect.MySQLDialect
+      ddl-auto: validate
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: true
 
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: YOUR_EMAIL
-    password: YOUR_APP_PASSWORD
-    properties.mail.smtp.auth: true
-    properties.mail.smtp.starttls.enable: true
+server:
+  port: 8081
+  servlet:
+    context-path: /api
 
 app:
   jwt:
-    secret: YOUR_256BIT_SECRET_KEY    # tối thiểu 256-bit
-    expiration: 86400000              # 24 giờ (ms)
-  otp:
-    expiration-minutes: 5
-  upload:
-    path: uploads/
-    max-size: 5242880                 # 5MB
-
-server:
-  port: 8080
-  servlet.context-path: /api
-
-springdoc:
-  api-docs.path: /v3/api-docs
-  swagger-ui.path: /swagger-ui.html
+    secret: <YOUR_SECRET_KEY_MIN_32_CHARS>
+    expiration-ms: 86400000        # 24 giờ
+    refresh-expiration-ms: 604800000  # 7 ngày
 ```
 
 ### 12.2 Frontend – `.env`
 
 ```
-VITE_API_BASE_URL=http://localhost:8080
+VITE_API_BASE_URL=http://localhost:8081
 VITE_APP_NAME=MealPlanner
 ```
 
 ### 12.3 Tạo database
 
 ```sql
-CREATE DATABASE mealplanner_db
+CREATE DATABASE meal_planner_system
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 ```
@@ -1015,8 +1377,10 @@ CREATE DATABASE mealplanner_db
 
 **Backend:**
 ```bash
-# 1. Tạo DB và chạy schema.sql
-# 2. Cập nhật application.yml
+# 1. Tạo DB: meal_planner_system
+# 2. Import schema: mysql -u root -p meal_planner_system < meal_planner_schema.sql
+# 3. (Tùy chọn) Import mock data: mysql -u root -p meal_planner_system < src/main/resources/mockdata_seed.sql
+# 4. Chạy backend (profile local, port 8081):
 cd backend && mvn spring-boot:run
 ```
 
@@ -1024,11 +1388,11 @@ cd backend && mvn spring-boot:run
 ```bash
 cd frontend
 npm install
-cp .env.example .env   # cập nhật VITE_API_BASE_URL
+cp .env.example .env   # cập nhật VITE_API_BASE_URL=http://localhost:8081
 npm run dev            # http://localhost:5173
 ```
 
-> ⚠️ **Không commit** `application.yml` chứa password thật hoặc file `.env` vào Git. Thêm vào `.gitignore` ngay từ đầu.
+> ⚠️ **Không commit** `application-local.yaml` chứa password thật hoặc file `.env` vào Git. Cấu hình `.gitignore` để loại trừ `.env` và `*.yaml` chứa credentials.
 
 ---
 
@@ -1036,26 +1400,28 @@ npm run dev            # http://localhost:5173
 
 | UC ID | Tên Use Case | Controller | Service | Repository |
 |---|---|---|---|---|
-| UC01 | Đăng ký | `AuthController` | `AuthService` | `UserAccountRepository` |
-| UC02 | Đăng nhập | `AuthController` | `AuthService` | `UserAccountRepository` |
-| UC03 | Đăng xuất | `AuthController` | `AuthService` | (client-side) |
-| UC04 | Lấy lại mật khẩu | `AuthController` | `AuthService`, `OtpService` | `UserAccountRepository`, `PasswordResetTokenRepository` |
-| UC05 | Cập nhật thông tin | `ProfileController` | `ProfileService` | `HealthProfileRepository` |
-| UC06 | Thiết lập mục tiêu | `ProfileController` | `GoalService` | `HealthGoalRepository` |
-| UC07 | Tạo kế hoạch | `MealPlanController` | `MealPlanService` | `MealPlanRepository` |
-| UC08 | Thêm món vào kế hoạch | `MealPlanController` | `MealPlanService`, `PortionService` | `PortionRepository`, `DishRepository` |
-| UC09 | Chỉnh sửa kế hoạch | `MealPlanController` | `MealPlanService` | `MealPlanRepository`, `PortionRepository` |
-| UC10 | Xóa kế hoạch | `MealPlanController` | `MealPlanService` | `MealPlanRepository` |
-| UC11 | Xem lịch kế hoạch | `MealPlanController` | `MealPlanService` | `MealPlanRepository` |
-| UC12 | Lưu kế hoạch mẫu | `MealPlanController` | `TemplateService` | `MealPlanTemplateRepository`, `TemplateMealRepository`, `TemplatePortionRepository` |
-| UC13 | Tìm kiếm món ăn | `DishController` | `DishService` | `DishRepository` |
-| UC14 | Thêm món tùy chỉnh | `DishController` | `DishService` | `DishRepository`, `NutritionInfoRepository`, `IngredientRepository` |
-| UC15 | Lưu yêu thích | `DishController` | `FavoriteService` | `FavoriteDishRepository` |
-| UC16 | Admin – quản lý users | `AdminController` | `AdminService` | `UserAccountRepository` |
-| UC17 | Admin – quản lý món ăn | `AdminController` | `AdminDishService` | `DishRepository`, `NutritionInfoRepository` |
-| UC18 | Admin – thống kê | `AdminController` | `StatisticsService` | (Aggregate queries) |
-| UC19 | Admin – phản hồi | `AdminController` | `FeedbackService` | `UserFeedbackRepository` |
+| UC01 | Đăng ký | `AuthController` | `UserAccountServiceImpl` | `UserAccountRepository` |
+| UC02 | Đăng nhập | `AuthController` | `UserAccountServiceImpl` | `UserAccountRepository` |
+| UC03 | Đăng xuất | `AuthController` | (client-side: xóa token khỏi store) | — |
+| UC04 | Lấy lại mật khẩu | `AuthController` | `AuthService` (cần implement) | `PasswordResetTokenRepository` |
+| UC05 | Cập nhật thông tin | `HealthProfileController` | `HealthProfileServiceImpl` | `HealthProfileRepository` |
+| UC06 | Thiết lập mục tiêu | `HealthProfileController` | `GoalService` (cần implement) | `HealthGoalRepository` |
+| UC07 | Tạo kế hoạch | `MealPlanController` | `MealPlanServiceImpl` | `MealPlanRepository` |
+| UC08 | Thêm món vào kế hoạch | `MealPlanController` | `MealPlanService`, `PortionService` (cần implement) | `PortionRepository`, `DishRepository` |
+| UC09 | Chỉnh sửa kế hoạch | `MealPlanController` | `MealPlanServiceImpl` | `MealPlanRepository`, `PortionRepository` |
+| UC10 | Xóa kế hoạch | `MealPlanController` | `MealPlanServiceImpl` | `MealPlanRepository` |
+| UC11 | Xem lịch kế hoạch | `MealPlanController` | `MealPlanServiceImpl` | `MealPlanRepository` |
+| UC12 | Lưu kế hoạch mẫu | `MealPlanController` | `TemplateService` (cần implement) | `MealPlanTemplateRepository`, `TemplateMealRepository`, `TemplatePortionRepository` |
+| UC13 | Tìm kiếm món ăn | `DishController` | `DishServiceImpl` | `DishRepository` |
+| UC14 | Thêm món tùy chỉnh | `DishController` | `DishServiceImpl` | `DishRepository`, `NutritionInfoRepository`, `IngredientRepository` |
+| UC15 | Lưu yêu thích | `DishController` | `FavoriteService` (cần implement) | `FavoriteDishRepository` |
+| UC16 | Admin – quản lý users | `AdminController` (cần implement) | `AdminService` (cần implement) | `UserAccountRepository` |
+| UC17 | Admin – quản lý món ăn | `AdminController` | `AdminDishService` (cần implement) | `DishRepository`, `NutritionInfoRepository` |
+| UC18 | Admin – thống kê | `AdminController` | `StatisticsService` (cần implement) | (Aggregate queries) |
+| UC19 | Admin – phản hồi | `AdminController` | `FeedbackService` (cần implement) | `UserFeedbackRepository` (cần tạo) |
 
 ---
 
 *── Hết tài liệu Implementation ──*
+
+*Hà Nội – 2026 | Nhóm 04 – Môn Nhập môn Công nghệ Phần mềm*

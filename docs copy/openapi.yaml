@@ -1,0 +1,1160 @@
+openapi: 3.0.3
+info:
+  title: Meal Planner API (contract)
+  version: 1.0.0
+  description: OpenAPI specification (minimal) describing key endpoints and DTOs for FE/BE contract.
+servers:
+  - url: https://api.example.com/api
+    description: Production base URL (replace for dev)
+paths:
+  /auth/login:
+    post:
+      summary: Login and receive JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthLoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /users/me:
+    get:
+      summary: Get current authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAccountDTO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /meal-plans:
+    get:
+      summary: List meal plans within date range
+      parameters:
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Array of meal plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MealPlanDTO'
+    post:
+      summary: Create a meal plan (requires accountId query param)
+      parameters:
+        - in: query
+          name: accountId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MealPlanCreate'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Created meal plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealPlanDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /meal-plans/{id}:
+    get:
+      summary: Get meal plan detail by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Meal plan detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealPlanDTO'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /meal-plans/{planId}/meals/{mealType}/portions:
+    post:
+      summary: Add portion to meal
+      parameters:
+        - in: path
+          name: planId
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: path
+          name: mealType
+          required: true
+          schema:
+            type: string
+            description: breakfast|lunch|dinner|snack
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortionCreate'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Portion created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortionDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /users/me/favorites:
+    get:
+      summary: Get current user's favorite dishes
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Array of DishDTO
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DishDTO'
+    post:
+      summary: Create a favorite (alternative: POST /users/me/favorites/{dishId})
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dishId:
+                  type: integer
+                  format: int64
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Favorite created
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /users/me/favorites/{dishId}:
+    post:
+      summary: Add dish to favorites by id
+      parameters:
+        - in: path
+          name: dishId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Favorite added
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /admin/users:
+    get:
+      summary: Admin - list users (paged)
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            default: 20
+      security:
+        - bearerAuth: [admin]
+      responses:
+        '200':
+          description: Paged list of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserAccountDTO'
+                  totalElements:
+                    type: integer
+                  totalPages:
+                    type: integer
+  /admin/users/{id}/lock:
+    patch:
+      summary: Lock user account
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      security:
+        - bearerAuth: [admin]
+      responses:
+        '200':
+          description: User locked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAccountDTO'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /dishes:
+    get:
+      summary: List dishes with optional filters
+      parameters:
+        - in: query
+          name: keyword
+          schema:
+            type: string
+        - in: query
+          name: categoryId
+          schema:
+            type: integer
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paged dishes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DishDTO'
+                  totalElements:
+                    type: integer
+                  totalPages:
+                    type: integer
+
+  /dishes/{id}/ratings:
+    post:
+      summary: Add rating to a dish
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RatingCreate'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Rating created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RatingDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    get:
+      summary: Get ratings for a dish
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Array of ratings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RatingDTO'
+
+  /meal-plan-templates:
+    get:
+      summary: Get current user's meal plan templates
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Array of templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TemplateDTO'
+    post:
+      summary: Save current meal plan as template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateCreate'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateDTO'
+
+  /meal-plan-templates/{id}:
+    delete:
+      summary: Delete a template
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Template deleted
+
+  /admin/dishes:
+    get:
+      summary: Admin - list all dishes
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            default: 20
+      security:
+        - bearerAuth: [admin]
+      responses:
+        '200':
+          description: Paged dishes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DishDTO'
+                  totalElements:
+                    type: integer
+                  totalPages:
+                    type: integer
+    post:
+      summary: Admin - create system dish
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DishCreate'
+      security:
+        - bearerAuth: [admin]
+      responses:
+        '201':
+          description: Dish created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DishDTO'
+
+  /admin/dishes/{id}:
+    put:
+      summary: Admin - update dish
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DishCreate'
+      security:
+        - bearerAuth: [admin]
+      responses:
+        '200':
+          description: Dish updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DishDTO'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Admin - delete dish
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: [admin]
+      responses:
+        '204':
+          description: Dish deleted
+  /admin/users/{id}/unlock:
+    patch:
+      summary: Unlock user account
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      security:
+        - bearerAuth: [admin]
+      responses:
+        '200':
+          description: User unlocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAccountDTO'
+  /feedbacks:
+    post:
+      summary: Create a user feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackCreate'
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Feedback created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    get:
+      summary: Get current user's feedbacks
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Array of feedbacks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeedbackDTO'
+
+  /admin/feedbacks:
+    get:
+      summary: Admin - list feedbacks (paged/filter by status)
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            default: 20
+      security:
+        - bearerAuth: [admin]
+      responses:
+        '200':
+          description: Paged feedbacks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeedbackDTO'
+                  totalElements:
+                    type: integer
+                  totalPages:
+                    type: integer
+
+  /admin/feedbacks/{id}/status:
+    patch:
+      summary: Admin - update feedback status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+      security:
+        - bearerAuth: [admin]
+      responses:
+        '200':
+          description: Feedback updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackDTO'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/statistics:
+    get:
+      summary: Admin - get system statistics (users, meals, dishes)
+      parameters:
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+      security:
+        - bearerAuth: [admin]
+      responses:
+        '200':
+          description: System statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+        timestamp:
+          type: string
+          format: date-time
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    AuthLoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        tokenType:
+          type: string
+        expiresIn:
+          type: integer
+        role:
+          type: string
+        userId:
+          type: integer
+          format: int64
+    HealthProfileDTO:
+      type: object
+      properties:
+        fullName:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+        heightCm:
+          type: number
+        weightKg:
+          type: number
+        avatarUrl:
+          type: string
+    HealthGoalDTO:
+      type: object
+      properties:
+        goalType:
+          type: string
+        activityLevel:
+          type: string
+        dailyCaloriesKcal:
+          type: integer
+    UserAccountDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        profile:
+          $ref: '#/components/schemas/HealthProfileDTO'
+        healthGoal:
+          $ref: '#/components/schemas/HealthGoalDTO'
+    PortionDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+        dishId:
+          type: integer
+        quantityG:
+          type: number
+        caloriesKcal:
+          type: number
+        proteinG:
+          type: number
+        carbG:
+          type: number
+        fatG:
+          type: number
+    PortionCreate:
+      type: object
+      required: [dishId, quantityG]
+      properties:
+        dishId:
+          type: integer
+        quantityG:
+          type: number
+    MealDTO:
+      type: object
+      properties:
+        mealType:
+          type: string
+        portions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PortionDTO'
+    MealPlanDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+        accountId:
+          type: integer
+        planDate:
+          type: string
+          format: date
+        planName:
+          type: string
+        meals:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealDTO'
+    MealPlanCreate:
+      type: object
+      required: [planDate, meals]
+      properties:
+        planDate:
+          type: string
+          format: date
+        planName:
+          type: string
+        meals:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealDTO'
+    DishDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        categoryId:
+          type: integer
+        imageUrl:
+          type: string
+        source:
+          type: string
+        accountId:
+          type: integer
+          nullable: true
+        difficulty:
+          type: string
+        totalTimeMin:
+          type: integer
+        nutritionInfo:
+          type: object
+          properties:
+            caloriesPer100g:
+              type: number
+            proteinPer100g:
+              type: number
+            carbPer100g:
+              type: number
+            fatPer100g:
+              type: number
+        ingredients:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              quantityG:
+                type: number
+    
+      ### Examples added via example fields
+      LoginRequest:
+        type: object
+        required: [username, password]
+        properties:
+          username:
+            type: string
+          password:
+            type: string
+        example:
+          username: "user123"
+          password: "securePass"
+      AuthLoginResponse:
+        type: object
+        properties:
+          token:
+            type: string
+          tokenType:
+            type: string
+          expiresIn:
+            type: integer
+          role:
+            type: string
+          userId:
+            type: integer
+            format: int64
+        example:
+          token: "eyJhbGciOiJIUzI1NiJ9..."
+          tokenType: "Bearer"
+          expiresIn: 86400
+          role: "user"
+          userId: 42
+      UserAccountDTO:
+        type: object
+        properties:
+          id:
+            type: integer
+          username:
+            type: string
+          email:
+            type: string
+          role:
+            type: string
+          profile:
+            $ref: '#/components/schemas/HealthProfileDTO'
+          healthGoal:
+            $ref: '#/components/schemas/HealthGoalDTO'
+        example:
+          id: 42
+          username: "johndoe"
+          email: "johndoe@example.com"
+          role: "user"
+          profile:
+            fullName: "John Doe"
+            age: 30
+            gender: "male"
+            heightCm: 175.0
+            weightKg: 70.0
+            avatarUrl: "https://..."
+          healthGoal:
+            goalType: "maintain"
+            activityLevel: "medium"
+            dailyCaloriesKcal: 2500
+      MealPlanCreate:
+        type: object
+        required: [planDate, meals]
+        properties:
+          planDate:
+            type: string
+            format: date
+          planName:
+            type: string
+          meals:
+            type: array
+            items:
+              $ref: '#/components/schemas/MealDTO'
+        example:
+          planDate: "2026-05-10"
+          planName: "Thực đơn tuần 20"
+          meals:
+            - mealType: "breakfast"
+              portions:
+                - dishId: 5
+                  quantityG: 200
+      MealPlanDTO:
+        type: object
+        properties:
+          id:
+            type: integer
+          accountId:
+            type: integer
+          planDate:
+            type: string
+            format: date
+          planName:
+            type: string
+          meals:
+            type: array
+            items:
+              $ref: '#/components/schemas/MealDTO'
+        example:
+          id: 123
+          accountId: 42
+          planDate: "2026-05-10"
+          planName: "Thực đơn tuần 20"
+          meals:
+            - mealType: "breakfast"
+              portions:
+                - id: 1
+                  dishId: 5
+                  quantityG: 200
+                  caloriesKcal: 400.0
+                  proteinG: 20.0
+                  carbG: 50.0
+                  fatG: 10.0
+      PortionCreate:
+        type: object
+        required: [dishId, quantityG]
+        properties:
+          dishId:
+            type: integer
+          quantityG:
+            type: number
+        example:
+          dishId: 5
+          quantityG: 200
+      PortionDTO:
+        type: object
+        properties:
+          id:
+            type: integer
+          dishId:
+            type: integer
+          quantityG:
+            type: number
+          caloriesKcal:
+            type: number
+          proteinG:
+            type: number
+          carbG:
+            type: number
+          fatG:
+            type: number
+        example:
+          id: 1
+          dishId: 5
+          quantityG: 200
+          caloriesKcal: 400.0
+          proteinG: 20.0
+          carbG: 50.0
+          fatG: 10.0
+      HealthProfileDTO:
+        type: object
+        properties:
+          fullName:
+            type: string
+          age:
+            type: integer
+          gender:
+            type: string
+          heightCm:
+            type: number
+          weightKg:
+            type: number
+          avatarUrl:
+            type: string
+        example:
+          fullName: "John Doe"
+          age: 30
+          gender: "male"
+          heightCm: 175.0
+          weightKg: 70.0
+          avatarUrl: "https://..."
+      HealthGoalDTO:
+        type: object
+        properties:
+          goalType:
+            type: string
+          activityLevel:
+            type: string
+          dailyCaloriesKcal:
+            type: integer
+        example:
+          goalType: "maintain"
+          activityLevel: "medium"
+          dailyCaloriesKcal: 2500
+
+      # Additional admin response examples
+      PagedUserResponse:
+        type: object
+        properties:
+          content:
+            type: array
+            items:
+              $ref: '#/components/schemas/UserAccountDTO'
+          totalElements:
+            type: integer
+          totalPages:
+            type: integer
+        example:
+          content:
+            - id: 42
+              username: "johndoe"
+              email: "johndoe@example.com"
+              role: "user"
+          totalElements: 1
+          totalPages: 1
+
+      # Ratings & Templates schemas
+      RatingCreate:
+        type: object
+        required: [score]
+        properties:
+          score:
+            type: integer
+          comment:
+            type: string
+        example:
+          score: 5
+          comment: "Rất ngon"
+      RatingDTO:
+        type: object
+        properties:
+          id:
+            type: integer
+          accountId:
+            type: integer
+          dishId:
+            type: integer
+          score:
+            type: integer
+          comment:
+            type: string
+          createdAt:
+            type: string
+            format: date-time
+        example:
+          id: 10
+          accountId: 42
+          dishId: 5
+          score: 5
+          comment: "Rất ngon"
+          createdAt: "2026-05-04T10:00:00Z"
+
+      TemplateCreate:
+        type: object
+        required: [templateName, meals]
+        properties:
+          templateName:
+            type: string
+          meals:
+            type: array
+            items:
+              $ref: '#/components/schemas/MealDTO'
+        example:
+          templateName: "Mẫu ăn sáng nhanh"
+          meals:
+            - mealType: "breakfast"
+              portions:
+                - dishId: 5
+                  quantityG: 150
+
+      TemplateDTO:
+        type: object
+        properties:
+          id:
+            type: integer
+          accountId:
+            type: integer
+          templateName:
+            type: string
+          meals:
+            type: array
+            items:
+              $ref: '#/components/schemas/MealDTO'
+        example:
+          id: 7
+          accountId: 42
+          templateName: "Mẫu ăn sáng nhanh"
+          meals:
+            - mealType: "breakfast"
+              portions:
+                - id: 1
+                  dishId: 5
+                  quantityG: 150
+
+      DishCreate:
+        type: object
+        required: [name, categoryId, nutritionInfo]
+        properties:
+          name:
+            type: string
+          categoryId:
+            type: integer
+          imageUrl:
+            type: string
+          source:
+            type: string
+          difficulty:
+            type: string
+          totalTimeMin:
+            type: integer
+          nutritionInfo:
+            type: object
+            required: [caloriesPer100g]
+            properties:
+              caloriesPer100g:
+                type: number
+              proteinPer100g:
+                type: number
+              carbPer100g:
+                type: number
+              fatPer100g:
+                type: number
+          ingredients:
+            type: array
+            items:
+              type: object
+              properties:
+                name:
+                  type: string
+                quantityG:
+                  type: number
+        example:
+          name: "Bún chả"
+          categoryId: 3
+          imageUrl: "https://..."
+          source: "system"
+          difficulty: "medium"
+          totalTimeMin: 40
+          nutritionInfo:
+            caloriesPer100g: 150.0
+            proteinPer100g: 10.0
+            carbPer100g: 20.0
+            fatPer100g: 5.0
+          ingredients:
+            - name: "thịt"
+              quantityG: 100

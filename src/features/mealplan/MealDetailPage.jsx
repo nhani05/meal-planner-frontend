@@ -39,7 +39,7 @@ const MealDetailPage = () => {
         setMealPlan({ ...data, meals });
       } catch (error) {
         toast({ variant: 'destructive', title: 'Không thể tải kế hoạch bữa ăn' });
-        navigate('/meal-plans');
+        navigate('/meal-plans/manage');
       } finally {
         setIsLoading(false);
       }
@@ -133,7 +133,7 @@ const MealDetailPage = () => {
     <div className="max-w-5xl mx-auto py-8">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/meal-plans')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/meal-plans/manage')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>

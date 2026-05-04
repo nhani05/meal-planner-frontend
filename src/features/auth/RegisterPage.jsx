@@ -46,8 +46,9 @@ const RegisterPage = () => {
   const onSubmit = async (values) => {
     setIsLoading(true);
     try {
-      // Omit confirmPassword before sending to backend
-      const { confirmPassword, ...registerData } = values;
+      // Send to backend with correct field name
+      const { confirmPassword, ...rest } = values;
+      const registerData = { ...rest, passwordConfirm: confirmPassword };
       await authService.register(registerData);
       
       toast({

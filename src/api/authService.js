@@ -2,7 +2,7 @@ import api from './api';
 
 export const authService = {
   // POST /auth/login — { username, password }
-  // Response: { token, tokenType, expiresIn, role, userId }
+  // Response: { token, user: { id, username, email, role, status } }
   login: async (credentials) => {
     const response = await api.post('/auth/login', credentials);
     return response.data;
@@ -41,6 +41,13 @@ export const authService = {
   // PUT /auth/change-password — requires Bearer token
   changePassword: async (oldPassword, newPassword) => {
     const response = await api.put('/auth/change-password', { oldPassword, newPassword });
+    return response.data;
+  },
+
+  // GET /auth/user/{id} — matching Postman
+  getUserAccount: async (id) => {
+    const userId = id || localStorage.getItem('userId');
+    const response = await api.get(`/auth/user/${userId}`);
     return response.data;
   },
 };
