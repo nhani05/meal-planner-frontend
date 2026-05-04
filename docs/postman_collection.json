@@ -1,0 +1,135 @@
+{
+  "info": {
+    "name": "Meal Planner API - Local",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth","register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"tester1\",\n  \"email\": \"tester1@example.com\",\n  \"password\": \"P@ssw0rd\",\n  \"passwordConfirm\": \"P@ssw0rd\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"tester1\",\n  \"password\": \"P@ssw0rd\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get User",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/auth/user/1", "host": ["{{baseUrl}}"], "path": ["auth","user","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dishes",
+      "item": [
+        {
+          "name": "Get All Dishes",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/dishes", "host": ["{{baseUrl}}"], "path": ["dishes"] } }
+        },
+        {
+          "name": "Get Dish By Id",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/dishes/1", "host": ["{{baseUrl}}"], "path": ["dishes","1"] } }
+        },
+        {
+          "name": "Create Dish",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/dishes", "host": ["{{baseUrl}}"], "path": ["dishes"] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Grilled Chicken\",\n  \"imageUrl\": \"https://example.com/chicken.jpg\",\n  \"source\": \"SYSTEM\",\n  \"difficulty\": 2,\n  \"totalTimeMin\": 45\n}" }
+          }
+        },
+        {
+          "name": "Update Dish",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/dishes/1", "host": ["{{baseUrl}}"], "path": ["dishes","1"] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Grilled Chicken (updated)\",\n  \"imageUrl\": \"https://example.com/chicken2.jpg\",\n  \"difficulty\": 3,\n  \"totalTimeMin\": 50\n}" }
+          }
+        },
+        {
+          "name": "Delete Dish",
+          "request": { "method": "DELETE", "url": { "raw": "{{baseUrl}}/dishes/1", "host": ["{{baseUrl}}"], "path": ["dishes","1"] } }
+        }
+      ]
+    },
+    {
+      "name": "Meal Plans",
+      "item": [
+        {
+          "name": "Get Meal Plans by Account",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/meal-plans/account/1", "host": ["{{baseUrl}}"], "path": ["meal-plans","account","1"] } }
+        },
+        {
+          "name": "Get Meal Plan By Date",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/meal-plans/account/1/date/2026-05-03", "host": ["{{baseUrl}}"], "path": ["meal-plans","account","1","date","2026-05-03"] } }
+        },
+        {
+          "name": "Create Meal Plan",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/meal-plans?accountId=1", "host": ["{{baseUrl}}"], "path": ["meal-plans"], "query": [{ "key": "accountId", "value": "1" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"planName\": \"Lunch Plan\",\n  \"planDate\": \"2026-05-03\"\n}" }
+          }
+        },
+        {
+          "name": "Update Meal Plan",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/meal-plans/1", "host": ["{{baseUrl}}"], "path": ["meal-plans","1"] },
+            "body": { "mode": "raw", "raw": "{\n  \"planName\": \"Lunch Plan (updated)\",\n  \"planDate\": \"2026-05-03\"\n}" }
+          }
+        },
+        {
+          "name": "Delete Meal Plan",
+          "request": { "method": "DELETE", "url": { "raw": "{{baseUrl}}/meal-plans/1", "host": ["{{baseUrl}}"], "path": ["meal-plans","1"] } }
+        }
+      ]
+    },
+    {
+      "name": "Health Profile",
+      "item": [
+        {
+          "name": "Get Health Profile",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/health-profile/1", "host": ["{{baseUrl}}"], "path": ["health-profile","1"] } }
+        },
+        {
+          "name": "Create/Update Health Profile",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/health-profile/1", "host": ["{{baseUrl}}"], "path": ["health-profile","1"] },
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Nguyen Van A\",\n  \"age\": 30,\n  \"gender\": \"MALE\",\n  \"heightCm\": 175,\n  \"weightKg\": 70,\n  \"avatarUrl\": \"https://example.com/avatar.jpg\"\n}" }
+          }
+        }
+      ]
+    }
+  ]
+}
