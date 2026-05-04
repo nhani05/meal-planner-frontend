@@ -3,12 +3,15 @@ import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import AdminSidebar from '../components/AdminSidebar';
 import ProtectedRoute from './ProtectedRoute';
+import AdminRoute from './AdminRoute';
 import { Toaster } from '../components/ui/toaster';
 
 // Public pages
 import HomePage from '../features/public/HomePage';
 import BlogPage from '../features/public/BlogPage';
 import ContactPage from '../features/public/ContactPage';
+import MealPlanLandingPage from '../features/public/MealPlanLandingPage';
+import TDEELandingPage from '../features/public/TDEELandingPage';
 
 // Auth
 import LoginPage from '../features/auth/LoginPage';
@@ -82,6 +85,8 @@ const router = createBrowserRouter([
       { path: 'forgot-password', element: <ForgotPasswordPage /> },
       { path: 'blog', element: <BlogPage /> },
       { path: 'contact', element: <ContactPage /> },
+      { path: 'meal-plans', element: <MealPlanLandingPage /> },
+      { path: 'tdee', element: <TDEELandingPage /> },
     ],
   },
 
@@ -93,7 +98,7 @@ const router = createBrowserRouter([
       {
         element: <ProtectedRoute />,
         children: [
-          { path: 'meal-plans', element: <MealCalendarPage /> },
+          { path: 'meal-plans/manage', element: <MealCalendarPage /> },
           { path: 'meal-plans/new', element: <CreateMealPlanPage /> },
           { path: 'meal-plans/:id', element: <MealDetailPage /> },
           { path: 'profile', element: <ProfilePage /> },
@@ -111,9 +116,14 @@ const router = createBrowserRouter([
     path: '/admin',
     element: <AdminLayout />,
     children: [
-      { index: true, element: <AdminDashboardPage /> },
-      { path: 'users', element: <AdminUserPage /> },
-      { path: 'dishes', element: <AdminDishPage /> },
+      {
+        element: <AdminRoute />,
+        children: [
+          { index: true, element: <AdminDashboardPage /> },
+          { path: 'users', element: <AdminUserPage /> },
+          { path: 'dishes', element: <AdminDishPage /> },
+        ],
+      },
     ],
   },
 ]);

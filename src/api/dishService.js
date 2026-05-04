@@ -28,7 +28,7 @@ export const dishService = {
   // DELETE /dishes/{id}
   deleteDish: async (id) => {
     const response = await api.delete(`/dishes/${id}`);
-    return response.data;
+    return response.status === 204 || response.data;
   },
 
   // GET /dish-categories

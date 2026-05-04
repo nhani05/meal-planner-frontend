@@ -1,11 +1,27 @@
 import api from './api';
 
+/**
+ * Helper: lấy accountId từ localStorage, throw nếu không có.
+ * Tránh gửi "undefined" hoặc "null" lên backend.
+ */
+const getAccountId = () => {
+  const id = localStorage.getItem('userId');
+  if (!id) throw new Error('Chưa đăng nhập. Không tìm thấy userId.');
+  return id;
+};
+
 export const mealService = {
-  // GET /meal-plans?startDate=&endDate=
-  getMealPlans: async (startDate, endDate) => {
-    const response = await api.get('/meal-plans', {
-      params: { startDate, endDate }
-    });
+  // GET /meal-plans/account/{accountId}
+  getMealPlans: async (accountId) => {
+    const id = accountId || getAccountId();
+    const response = await api.get(`/meal-plans/account/${id}`);
+    return response.data;
+  },
+
+  // GET /meal-plans/account/{accountId}/date/{date}
+  getMealPlanByDate: async (accountId, date) => {
+    const id = accountId || getAccountId();
+    const response = await api.get(`/meal-plans/account/${id}/date/${date}`);
     return response.data;
   },
 
@@ -15,9 +31,12 @@ export const mealService = {
     return response.data;
   },
 
-  // POST /meal-plans — { planDate, planName, meals: [{ mealType, portions: [{dishId, quantityG}] }] }
-  createMealPlan: async (planData) => {
-    const response = await api.post('/meal-plans', planData);
+  // POST /meal-plans?accountId={accountId}
+  createMealPlan: async (planData, accountId) => {
+    const id = accountId || getAccountId();
+    const response = await api.post('/meal-plans', planData, {
+      params: { accountId: id }
+    });
     return response.data;
   },
 
@@ -33,7 +52,7 @@ export const mealService = {
     return response.data;
   },
 
-  // POST /meal-plans/{planId}/meals/{mealType}/portions — { dishId, quantityG }
+  // ─── Portions ───
   addPortion: async (planId, mealType, portionData) => {
     const response = await api.post(
       `/meal-plans/${planId}/meals/${mealType}/portions`,
@@ -42,7 +61,6 @@ export const mealService = {
     return response.data;
   },
 
-  // PUT /meal-plans/{planId}/meals/{mealType}/portions/{portionId}
   updatePortion: async (planId, mealType, portionId, portionData) => {
     const response = await api.put(
       `/meal-plans/${planId}/meals/${mealType}/portions/${portionId}`,
@@ -51,7 +69,6 @@ export const mealService = {
     return response.data;
   },
 
-  // DELETE /meal-plans/{planId}/meals/{mealType}/portions/{portionId}
   deletePortion: async (planId, mealType, portionId) => {
     const response = await api.delete(
       `/meal-plans/${planId}/meals/${mealType}/portions/${portionId}`
@@ -61,19 +78,10 @@ export const mealService = {
 
   // GET /meal-plan-templates
   getTemplates: async () => {
-    const response = await api.get('/meal-plan-templates');
-    return response.data;
-  },
-
-  // POST /meal-plan-templates
-  createTemplate: async (templateData) => {
-    const response = await api.post('/meal-plan-templates', templateData);
-    return response.data;
-  },
-
-  // DELETE /meal-plan-templates/{id}
-  deleteTemplate: async (id) => {
-    const response = await api.delete(`/meal-plan-templates/${id}`);
+    const id = getAccountId();
+    const response = await api.get('/meal-plan-templates', {
+      params: { accountId: id }
+    });
     return response.data;
   },
 };

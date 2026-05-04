@@ -21,13 +21,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
 
-// Validation Schemas
+// Validation Schemas - Aligning with Postman (camelCase)
 const profileSchema = z.object({
-  full_name: z.string().min(2, { message: 'Tên phải có ít nhất 2 ký tự' }).optional(),
+  fullName: z.string().min(2, { message: 'Tên phải có ít nhất 2 ký tự' }).optional(),
   age: z.coerce.number().min(1).max(120).optional(),
-  gender: z.enum(['male', 'female', 'other']).optional(),
-  height_cm: z.coerce.number().min(50).max(250).optional(),
-  weight_kg: z.coerce.number().min(10).max(300).optional(),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER', 'male', 'female', 'other']).optional(),
+  heightCm: z.coerce.number().min(50).max(250).optional(),
+  weightKg: z.coerce.number().min(10).max(300).optional(),
 });
 
 const healthGoalSchema = z.object({
@@ -39,17 +39,17 @@ const healthGoalSchema = z.object({
 const ProfilePage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const { profile, healthGoal, setProfile, setHealthGoal } = useUserStore();
+  const { setProfile, setHealthGoal } = useUserStore();
   const { toast } = useToast();
 
   const profileForm = useForm({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      full_name: '',
+      fullName: '',
       age: 20,
-      gender: 'other',
-      height_cm: 160,
-      weight_kg: 60,
+      gender: 'MALE',
+      heightCm: 160,
+      weightKg: 60,
     },
   });
 
@@ -73,11 +73,11 @@ const ProfilePage = () => {
         if (profileData) {
           setProfile(profileData);
           profileForm.reset({
-            full_name: profileData.full_name || '',
+            fullName: profileData.fullName || profileData.full_name || '',
             age: profileData.age || 20,
-            gender: profileData.gender || 'other',
-            height_cm: profileData.height_cm || 160,
-            weight_kg: profileData.weight_kg || 60,
+            gender: (profileData.gender || 'MALE').toUpperCase(),
+            heightCm: profileData.heightCm || profileData.height_cm || 160,
+            weightKg: profileData.weightKg || profileData.weight_kg || 60,
           });
         }
         
@@ -102,12 +102,10 @@ const ProfilePage = () => {
   const onProfileSubmit = async (values) => {
     setIsSaving(true);
     try {
-      const updatedProfile = await userService.updateProfile(values);
+      const payload = { ...values, gender: values.gender.toUpperCase() };
+      const updatedProfile = await userService.updateProfile(payload);
       setProfile(updatedProfile);
-      toast({
-        title: "Cập nhật thành công",
-        description: "Hồ sơ cá nhân đã được lưu lại.",
-      });
+      toast({ title: "Cập nhật thành công", description: "Hồ sơ cá nhân đã được lưu lại." });
     } catch (error) {
       toast({
         variant: "destructive",
@@ -124,10 +122,7 @@ const ProfilePage = () => {
     try {
       const updatedGoal = await userService.updateHealthGoal(values);
       setHealthGoal(updatedGoal);
-      toast({
-        title: "Cập nhật thành công",
-        description: "Mục tiêu sức khỏe đã được lưu lại.",
-      });
+      toast({ title: "Cập nhật thành công", description: "Mục tiêu sức khỏe đã được lưu lại." });
     } catch (error) {
       toast({
         variant: "destructive",
@@ -140,38 +135,41 @@ const ProfilePage = () => {
   };
 
   if (isLoading) {
-    return <div className="text-center py-12">Đang tải thông tin...</div>;
+    return <div className="text-center py-12 font-medium">Đang tải thông tin hồ sơ...</div>;
   }
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold mb-6">Hồ sơ cá nhân</h1>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Hồ sơ cá nhân</h1>
+        <p className="text-muted-foreground mt-1">Quản lý thông tin sức khỏe và mục tiêu của bạn</p>
+      </div>
       
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-md mb-8">
-          <TabsTrigger value="profile">Thông tin cơ bản</TabsTrigger>
-          <TabsTrigger value="health-goal">Mục tiêu sức khỏe</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 max-w-md mb-8 bg-slate-100 p-1 rounded-xl">
+          <TabsTrigger value="profile" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Thông tin cơ bản</TabsTrigger>
+          <TabsTrigger value="health-goal" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Mục tiêu sức khỏe</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="profile">
-          <Card>
-            <CardHeader>
-              <CardTitle>Thông tin cơ bản</CardTitle>
+        <TabsContent value="profile" className="focus-visible:outline-none">
+          <Card className="border-none shadow-md overflow-hidden">
+            <CardHeader className="bg-slate-50 border-b">
+              <CardTitle className="text-xl">Chỉ số cơ thể</CardTitle>
               <CardDescription>
-                Cập nhật các chỉ số cơ thể để hệ thống có thể tính toán chính xác nhu cầu dinh dưỡng của bạn.
+                Cập nhật các chỉ số chính xác để hệ thống tính toán TDEE chuẩn nhất.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <Form {...profileForm}>
                 <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-6">
                   <FormField
                     control={profileForm.control}
-                    name="full_name"
+                    name="fullName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Họ và tên</FormLabel>
+                        <FormLabel className="text-slate-700">Họ và tên</FormLabel>
                         <FormControl>
-                          <Input placeholder="Nguyễn Văn A" {...field} />
+                          <Input placeholder="Nguyễn Văn A" className="h-11" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -184,9 +182,9 @@ const ProfilePage = () => {
                       name="age"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Tuổi</FormLabel>
+                          <FormLabel className="text-slate-700">Tuổi</FormLabel>
                           <FormControl>
-                            <Input type="number" {...field} />
+                            <Input type="number" className="h-11" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -198,17 +196,17 @@ const ProfilePage = () => {
                       name="gender"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Giới tính</FormLabel>
+                          <FormLabel className="text-slate-700">Giới tính</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger className="h-11">
                                 <SelectValue placeholder="Chọn giới tính" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="male">Nam</SelectItem>
-                              <SelectItem value="female">Nữ</SelectItem>
-                              <SelectItem value="other">Khác</SelectItem>
+                              <SelectItem value="MALE">Nam</SelectItem>
+                              <SelectItem value="FEMALE">Nữ</SelectItem>
+                              <SelectItem value="OTHER">Khác</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -220,12 +218,12 @@ const ProfilePage = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField
                       control={profileForm.control}
-                      name="height_cm"
+                      name="heightCm"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Chiều cao (cm)</FormLabel>
+                          <FormLabel className="text-slate-700">Chiều cao (cm)</FormLabel>
                           <FormControl>
-                            <Input type="number" {...field} />
+                            <Input type="number" className="h-11" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -234,12 +232,12 @@ const ProfilePage = () => {
                     
                     <FormField
                       control={profileForm.control}
-                      name="weight_kg"
+                      name="weightKg"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Cân nặng (kg)</FormLabel>
+                          <FormLabel className="text-slate-700">Cân nặng (kg)</FormLabel>
                           <FormControl>
-                            <Input type="number" {...field} />
+                            <Input type="number" className="h-11" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -247,8 +245,8 @@ const ProfilePage = () => {
                     />
                   </div>
 
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  <Button type="submit" disabled={isSaving} className="w-full md:w-auto px-10 h-11">
+                    {isSaving ? 'Đang lưu...' : 'Lưu hồ sơ'}
                   </Button>
                 </form>
               </Form>
@@ -256,15 +254,15 @@ const ProfilePage = () => {
           </Card>
         </TabsContent>
         
-        <TabsContent value="health-goal">
-          <Card>
-            <CardHeader>
-              <CardTitle>Mục tiêu sức khỏe</CardTitle>
+        <TabsContent value="health-goal" className="focus-visible:outline-none">
+          <Card className="border-none shadow-md overflow-hidden">
+            <CardHeader className="bg-slate-50 border-b">
+              <CardTitle className="text-xl">Mục tiêu & Vận động</CardTitle>
               <CardDescription>
-                Hệ thống sẽ dựa vào mục tiêu này để tính toán lượng Calo (TDEE) và Macros hàng ngày cho bạn.
+                Thiết lập mục tiêu để nhận được đề xuất Calo hàng ngày.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <Form {...goalForm}>
                 <form onSubmit={goalForm.handleSubmit(onGoalSubmit)} className="space-y-8">
                   <FormField
@@ -272,31 +270,28 @@ const ProfilePage = () => {
                     name="goal_type"
                     render={({ field }) => (
                       <FormItem className="space-y-3">
-                        <FormLabel>Mục tiêu của bạn là gì?</FormLabel>
+                        <FormLabel className="text-base font-bold text-slate-800">Mục tiêu của bạn là gì?</FormLabel>
                         <FormControl>
                           <RadioGroup
                             onValueChange={field.onChange}
                             defaultValue={field.value}
-                            className="flex flex-col space-y-1"
+                            className="grid grid-cols-1 md:grid-cols-3 gap-4"
                           >
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="weight_loss" />
-                              </FormControl>
-                              <FormLabel className="font-normal">Giảm cân</FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="maintain" />
-                              </FormControl>
-                              <FormLabel className="font-normal">Duy trì cân nặng</FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="muscle_gain" />
-                              </FormControl>
-                              <FormLabel className="font-normal">Tăng cơ / Tăng cân</FormLabel>
-                            </FormItem>
+                            {[
+                              { id: 'weight_loss', label: 'Giảm cân', desc: 'Calo < TDEE' },
+                              { id: 'maintain', label: 'Duy trì', desc: 'Calo = TDEE' },
+                              { id: 'muscle_gain', label: 'Tăng cân', desc: 'Calo > TDEE' },
+                            ].map((item) => (
+                              <FormItem key={item.id} className="flex items-center space-x-0 space-y-0 relative">
+                                <FormControl>
+                                  <RadioGroupItem value={item.id} className="sr-only" />
+                                </FormControl>
+                                <FormLabel className={`flex flex-col p-4 w-full border-2 rounded-xl cursor-pointer transition-all ${field.value === item.id ? 'border-primary bg-primary/5 shadow-sm' : 'border-slate-100 hover:border-slate-200'}`}>
+                                  <span className="font-bold text-slate-900">{item.label}</span>
+                                  <span className="text-xs text-muted-foreground">{item.desc}</span>
+                                </FormLabel>
+                              </FormItem>
+                            ))}
                           </RadioGroup>
                         </FormControl>
                         <FormMessage />
@@ -309,15 +304,15 @@ const ProfilePage = () => {
                     name="activity_level"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Mức độ vận động hàng ngày</FormLabel>
+                        <FormLabel className="text-base font-bold text-slate-800">Mức độ vận động hàng ngày</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="h-12 border-slate-200">
                               <SelectValue placeholder="Chọn mức độ vận động" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="low">Ít vận động (Việc văn phòng, không tập thể dục)</SelectItem>
+                            <SelectItem value="low">Ít vận động (Làm việc văn phòng, không tập thể dục)</SelectItem>
                             <SelectItem value="medium">Vận động vừa (Tập thể dục 3-5 ngày/tuần)</SelectItem>
                             <SelectItem value="high">Vận động nhiều (Tập nặng 6-7 ngày/tuần)</SelectItem>
                           </SelectContent>
@@ -332,23 +327,16 @@ const ProfilePage = () => {
                     name="target_weight_kg"
                     render={({ field }) => (
                       <FormItem className="max-w-xs">
-                        <FormLabel>Cân nặng mục tiêu (kg)</FormLabel>
+                        <FormLabel className="text-base font-bold text-slate-800">Cân nặng mục tiêu (kg)</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} />
+                          <Input type="number" className="h-11" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
 
-                  {healthGoal?.daily_calories_kcal && (
-                    <div className="bg-primary/10 p-4 rounded-md border border-primary/20">
-                      <p className="font-medium text-primary">TDEE / Calo mục tiêu hiện tại của bạn:</p>
-                      <p className="text-2xl font-bold">{healthGoal.daily_calories_kcal} kcal / ngày</p>
-                    </div>
-                  )}
-
-                  <Button type="submit" disabled={isSaving}>
+                  <Button type="submit" disabled={isSaving} className="w-full md:w-auto px-10 h-11">
                     {isSaving ? 'Đang lưu...' : 'Lưu mục tiêu'}
                   </Button>
                 </form>

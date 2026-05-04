@@ -23,8 +23,8 @@ const Navbar = () => {
 
   const navLinks = [
     { name: 'Trang chủ', path: '/' },
-    { name: 'Thực đơn', path: '/meal-plans' },
-    { name: 'Công cụ tính TDEE', path: '/profile' },
+    { name: 'Thực đơn', path: isAuthenticated ? '/meal-plans/manage' : '/meal-plans' },
+    { name: 'Công cụ tính TDEE', path: isAuthenticated ? '/profile' : '/tdee' },
     { name: 'Kiến thức dinh dưỡng', path: '/blog' },
     { name: 'Liên hệ', path: '/contact' },
   ];

@@ -17,6 +17,7 @@ import { ingredientService } from '../../api/ingredientService';
 
 const dishSchema = z.object({
   name: z.string().min(2, { message: 'Tên món ăn phải có ít nhất 2 ký tự' }),
+  categoryId: z.string().min(1, { message: 'Vui lòng chọn danh mục' }),
   description: z.string().optional(),
   instructions: z.string().optional(),
 });
@@ -25,6 +26,7 @@ const CreateDishPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [availableIngredients, setAvailableIngredients] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [recipe, setRecipe] = useState([]);
   const [selectedIngredientId, setSelectedIngredientId] = useState('');
   const [quantityG, setQuantityG] = useState(100);
@@ -32,14 +34,18 @@ const CreateDishPage = () => {
 
   const form = useForm({
     resolver: zodResolver(dishSchema),
-    defaultValues: { name: '', description: '', instructions: '' },
+    defaultValues: { name: '', categoryId: '', description: '', instructions: '' },
   });
 
-  // Tải danh sách nguyên liệu thật từ API
+  // Tải danh sách nguyên liệu và danh mục từ API
   useEffect(() => {
     ingredientService.getIngredients({ size: 200 })
       .then(data => setAvailableIngredients(Array.isArray(data) ? data : data?.content || []))
       .catch(() => setAvailableIngredients([]));
+
+    dishService.getCategories()
+      .then(data => setCategories(Array.isArray(data) ? data : []))
+      .catch(() => setCategories([]));
   }, []);
 
   // Tự động tính tổng dinh dưỡng
@@ -88,17 +94,24 @@ const CreateDishPage = () => {
       return;
     }
     setIsSaving(true);
+    const totalWeight = recipe.reduce((acc, r) => acc + r.quantityG, 0);
+
     try {
       const payload = {
-        ...values,
-        // Gửi lên calories đã tính tự động
-        caloriesKcal: Math.round(totals.calories),
-        proteinG:     Math.round(totals.protein * 10) / 10,
-        carbG:        Math.round(totals.carb * 10) / 10,
-        fatG:         Math.round(totals.fat * 10) / 10,
-        // Thành phần nguyên liệu
+        name: values.name,
+        categoryId: Number(values.categoryId),
+        imageUrl: '',
+        source: 'custom',
+        difficulty: 'medium',
+        totalTimeMin: 30,
+        nutritionInfo: {
+          caloriesPer100g: Math.round((totals.calories / totalWeight) * 100),
+          proteinPer100g:  Math.round(((totals.protein / totalWeight) * 100) * 10) / 10,
+          carbPer100g:     Math.round(((totals.carb / totalWeight) * 100) * 10) / 10,
+          fatPer100g:      Math.round(((totals.fat / totalWeight) * 100) * 10) / 10,
+        },
         ingredients: recipe.map(r => ({
-          ingredientId: r.ingredient.id,
+          name: r.ingredient.name,
           quantityG: r.quantityG
         })),
       };
@@ -141,6 +154,31 @@ const CreateDishPage = () => {
                     <FormItem>
                       <FormLabel>Tên món ăn <span className="text-destructive">*</span></FormLabel>
                       <FormControl><Input placeholder="VD: Cơm sườn bí đao" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="categoryId" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Danh mục <span className="text-destructive">*</span></FormLabel>
+                      <FormControl>
+                        <select
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          {...field}
+                        >
+                          <option value="">-- Chọn danh mục --</option>
+                          {categories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          ))}
+                          {/* Fallback nếu BE chưa trả về categories */}
+                          {categories.length === 0 && (
+                            <>
+                              <option value="1">Món chính</option>
+                              <option value="2">Món canh</option>
+                              <option value="3">Món tráng miệng</option>
+                            </>
+                          )}
+                        </select>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
