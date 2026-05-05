@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Search, Trash2, Loader2, Plus } from 'lucide-react';
+import { Search, Trash2, Loader2, Plus, Pencil } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
@@ -10,6 +10,7 @@ import {
 import { useToast } from '../../hooks/use-toast';
 import { adminService } from '../../api/adminService';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import AdminDishModal from './components/AdminDishModal';
 
 const AdminDishPage = () => {
   const [dishes, setDishes] = useState([]);
@@ -18,6 +19,8 @@ const AdminDishPage = () => {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editDish, setEditDish] = useState(null);
   const { toast } = useToast();
 
   const fetchDishes = useCallback(async () => {
@@ -52,6 +55,33 @@ const AdminDishPage = () => {
     }
   };
 
+  const handleSaveDish = async (payload, dishId) => {
+    try {
+      if (dishId) {
+        await adminService.updateDishAdmin(dishId, payload);
+        toast({ title: 'Đã cập nhật món ăn' });
+      } else {
+        await adminService.createSystemDish(payload);
+        toast({ title: 'Đã thêm món ăn hệ thống' });
+      }
+      setEditDish(null);
+      fetchDishes();
+    } catch {
+      toast({ variant: 'destructive', title: 'Không thể lưu món ăn' });
+      throw new Error('save failed');
+    }
+  };
+
+  const openCreate = () => {
+    setEditDish(null);
+    setShowModal(true);
+  };
+
+  const openEdit = (dish) => {
+    setEditDish(dish);
+    setShowModal(true);
+  };
+
   const sourceBadge = (source) => {
     if (source === 'system') return <Badge variant="outline" className="border-blue-300 text-blue-600">Hệ thống</Badge>;
     return <Badge variant="secondary">Tùy chỉnh</Badge>;
@@ -78,6 +108,9 @@ const AdminDishPage = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </form>
+          <Button onClick={openCreate} size="sm">
+            <Plus className="h-4 w-4 mr-1" /> Thêm món
+          </Button>
         </div>
 
         <div className="border rounded-md">
@@ -116,6 +149,9 @@ const AdminDishPage = () => {
                       @{dish.submittedBy || dish.accountId || '-'}
                     </TableCell>
                     <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(dish)}>
+                        <Pencil className="h-4 w-4 text-slate-500" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(dish)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -135,6 +171,13 @@ const AdminDishPage = () => {
           </div>
         )}
       </div>
+
+      <AdminDishModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        dish={editDish}
+        onSaved={handleSaveDish}
+      />
 
       <ConfirmDialog
         open={!!deleteTarget}
