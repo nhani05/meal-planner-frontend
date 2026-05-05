@@ -8,6 +8,7 @@ import { mealService } from '@/api/mealService';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { SkeletonGrid, SkeletonCard } from '@/components/SkeletonCard';
 
 export default function DashboardPage() {
   const { userId } = useAuthStore();
@@ -47,6 +48,19 @@ export default function DashboardPage() {
   const targetCalories = healthGoal?.dailyCaloriesKcal || 2000;
   const currentCalories = todayPlan ? 0 : 0; // Sẽ cập nhật sau khi có portions
   const calPercent = Math.min((currentCalories / targetCalories) * 100, 100);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <div className="h-8 w-48 rounded bg-slate-200 animate-pulse" />
+          <div className="h-4 w-72 rounded bg-slate-200 animate-pulse mt-2" />
+        </div>
+        <SkeletonGrid count={4} cols="md:grid-cols-2 lg:grid-cols-4" />
+        <SkeletonCard count={1} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
