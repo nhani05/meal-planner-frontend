@@ -7,7 +7,8 @@ import { dishService } from '@/api/dishService';
 import { userService } from '@/api/userService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/hooks/use-toast';
-import { Heart, ArrowLeft, Clock, ChefHat } from 'lucide-react';
+import { Heart, ArrowLeft, Clock, ChefHat, UtensilsCrossed } from 'lucide-react';
+import DishRating from './components/DishRating';
 
 export default function DishDetailPage() {
   const { id } = useParams();
@@ -19,6 +20,8 @@ export default function DishDetailPage() {
   const [ratings, setRatings] = useState([]);
   const [isFav, setIsFav] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isRatingLoading, setIsRatingLoading] = useState(false);
+  const [showAddToMeal, setShowAddToMeal] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -77,6 +80,24 @@ export default function DishDetailPage() {
     }
   };
 
+  const handleRateDish = async ({ rating, comment }) => {
+    setIsRatingLoading(true);
+    try {
+      await dishService.rateDish(id, { rating, comment });
+      const updated = await dishService.getDishRatings(id);
+      setRatings(updated || []);
+      toast({ title: 'Đã gửi đánh giá' });
+    } catch {
+      toast({ title: 'Lỗi', description: 'Không thể gửi đánh giá.', variant: 'destructive' });
+    } finally {
+      setIsRatingLoading(false);
+    }
+  };
+
+  const handleAddToMeal = (mealType) => {
+    navigate(`/meal-plans/new?dishId=${id}&mealType=${mealType}`);
+  };
+
   if (loading || !dish) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -124,13 +145,22 @@ export default function DishDetailPage() {
               variant={isFav ? 'default' : 'outline'}
               size="icon"
               onClick={toggleFavorite}
+              title={isFav ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}
             >
               <Heart className={isFav ? 'fill-current' : ''} />
             </Button>
           </div>
+          <Button
+            variant="outline"
+            className="w-full mt-3"
+            onClick={() => setShowAddToMeal(true)}
+          >
+            <UtensilsCrossed className="mr-2 h-4 w-4" />
+            Thêm vào kế hoạch bữa ăn
+          </Button>
         </div>
 
-        {/* Right: Nutrition + Ingredients */}
+        {/* Right: Nutrition + Ingredients + Ratings */}
         <div className="space-y-4">
           <Card>
             <CardHeader>
@@ -187,8 +217,46 @@ export default function DishDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          <DishRating
+            ratings={ratings}
+            onSubmit={handleRateDish}
+            isLoading={isRatingLoading}
+          />
         </div>
       </div>
+
+      {/* Add to Meal Plan mini-dialog */}
+      {showAddToMeal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-lg space-y-4">
+            <h3 className="text-lg font-semibold">Chọn bữa ăn</h3>
+            <p className="text-sm text-muted-foreground">
+              Thêm <span className="font-medium">{dish.name}</span> vào bữa:
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {['breakfast', 'lunch', 'dinner', 'snack'].map((type) => {
+                const labels = { breakfast: 'Bữa sáng', lunch: 'Bữa trưa', dinner: 'Bữa tối', snack: 'Bữa phụ' };
+                return (
+                  <Button
+                    key={type}
+                    variant="outline"
+                    onClick={() => {
+                      handleAddToMeal(type);
+                      setShowAddToMeal(false);
+                    }}
+                  >
+                    {labels[type]}
+                  </Button>
+                );
+              })}
+            </div>
+            <div className="flex justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setShowAddToMeal(false)}>Hủy</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

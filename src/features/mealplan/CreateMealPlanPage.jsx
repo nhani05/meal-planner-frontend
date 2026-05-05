@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { useToast } from '../../hooks/use-toast';
 import { useUserStore } from '../../store/userStore';
 import { mealService } from '../../api/mealService';
+import { dishService } from '../../api/dishService';
 
 import NutritionSummaryBar from './components/NutritionSummaryBar';
 import MealSlotFrame from './components/MealSlotFrame';
@@ -19,6 +20,8 @@ const EMPTY_MEALS = { breakfast: [], lunch: [], dinner: [], snack: [] };
 const CreateMealPlanPage = () => {
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
+  const dishIdParam = searchParams.get('dishId');
+  const mealTypeParam = searchParams.get('mealType');
   const [planDate, setPlanDate] = useState(dateParam || format(new Date(), 'yyyy-MM-dd'));
   const [planName, setPlanName] = useState('');
   const [templates, setTemplates] = useState([]);
@@ -37,6 +40,37 @@ const CreateMealPlanPage = () => {
       .then(data => setTemplates(Array.isArray(data) ? data : data?.content || []))
       .catch(() => setTemplates([]));
   }, []);
+
+  // Pre-populate dish from DishDetailPage "Add to meal plan"
+  useEffect(() => {
+    if (!dishIdParam || !mealTypeParam) return;
+    const preload = async () => {
+      try {
+        const dish = await dishService.getDishById(dishIdParam);
+        const info = dish.nutritionInfo || {};
+        const portion = {
+          id: Date.now(),
+          dishId: dish.id,
+          dishName: dish.name,
+          quantity_g: 100,
+          quantityG: 100,
+          calories_kcal: info.caloriesPer100g || info.caloriesKcal || 0,
+          protein_g: info.proteinPer100g || info.proteinG || 0,
+          carb_g: info.carbPer100g || info.carbG || 0,
+          fat_g: info.fatPer100g || info.fatG || 0,
+        };
+        setMeals((prev) => ({
+          ...prev,
+          [mealTypeParam]: [...prev[mealTypeParam], portion],
+        }));
+        toast({ title: `Đã thêm "${dish.name}" vào ${mealTypeParam}` });
+      } catch {
+        toast({ variant: 'destructive', title: 'Không thể tải món ăn' });
+      }
+    };
+    preload();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dishIdParam, mealTypeParam]);
 
   const handleOpenModal = (mealType) => {
     setActiveMealType(mealType);
