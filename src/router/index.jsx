@@ -20,17 +20,26 @@ import ForgotPasswordPage from '../features/auth/ForgotPasswordPage';
 
 // User features
 import ProfilePage from '../features/profile/ProfilePage';
+import GoalsPage from '../features/profile/GoalsPage';
 import MealCalendarPage from '../features/mealplan/MealCalendarPage';
 import MealDetailPage from '../features/mealplan/MealDetailPage';
 import CreateMealPlanPage from '../features/mealplan/CreateMealPlanPage';
 import IngredientPage from '../features/dish/IngredientPage';
 import DishPage from '../features/dish/DishPage';
+import DishDetailPage from '../features/dish/DishDetailPage';
 import CreateDishPage from '../features/dish/CreateDishPage';
+import MyDishesPage from '../features/dish/MyDishesPage';
+import FavoritesPage from '../features/dish/FavoritesPage';
+import DashboardPage from '../features/dashboard/DashboardPage';
+import ResetPasswordPage from '../features/auth/ResetPasswordPage';
 
 // Admin pages
 import AdminDashboardPage from '../features/admin/AdminDashboardPage';
 import AdminUserPage from '../features/admin/AdminUserPage';
 import AdminDishPage from '../features/admin/AdminDishPage';
+import AdminStatsPage from '../features/admin/AdminStatsPage';
+import AdminFeedbackPage from '../features/admin/AdminFeedbackPage';
+import ServiceTestConsole from '../features/test/ServiceTestConsole';
 
 // ─── Layouts ─────────────────────────────────────────────
 const PublicLayout = () => (
@@ -83,10 +92,12 @@ const router = createBrowserRouter([
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },
       { path: 'forgot-password', element: <ForgotPasswordPage /> },
+      { path: 'reset-password', element: <ResetPasswordPage /> },
       { path: 'blog', element: <BlogPage /> },
       { path: 'contact', element: <ContactPage /> },
       { path: 'meal-plans', element: <MealPlanLandingPage /> },
       { path: 'tdee', element: <TDEELandingPage /> },
+      { path: 'test/services', element: <ServiceTestConsole /> },
     ],
   },
 
@@ -98,14 +109,19 @@ const router = createBrowserRouter([
       {
         element: <ProtectedRoute />,
         children: [
+          { path: 'dashboard', element: <DashboardPage /> },
           { path: 'meal-plans/manage', element: <MealCalendarPage /> },
           { path: 'meal-plans/new', element: <CreateMealPlanPage /> },
           { path: 'meal-plans/:id', element: <MealDetailPage /> },
           { path: 'profile', element: <ProfilePage /> },
+          { path: 'profile/goals', element: <GoalsPage /> },
           { path: 'ingredients', element: <IngredientPage /> },
           { path: 'dishes', element: <DishPage /> },
+          { path: 'dishes/:id', element: <DishDetailPage /> },
           { path: 'dishes/new', element: <CreateDishPage /> },
           { path: 'dishes/:id/edit', element: <CreateDishPage /> },
+          { path: 'my-dishes', element: <MyDishesPage /> },
+          { path: 'favorites', element: <FavoritesPage /> },
         ],
       },
     ],
@@ -122,6 +138,8 @@ const router = createBrowserRouter([
           { index: true, element: <AdminDashboardPage /> },
           { path: 'users', element: <AdminUserPage /> },
           { path: 'dishes', element: <AdminDishPage /> },
+          { path: 'stats', element: <AdminStatsPage /> },
+          { path: 'feedbacks', element: <AdminFeedbackPage /> },
         ],
       },
     ],

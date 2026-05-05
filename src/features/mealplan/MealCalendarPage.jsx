@@ -105,12 +105,26 @@ const MealCalendarPage = () => {
                         </span>
                         <span className="text-muted-foreground text-sm"> / {plan.targetCaloriesKcal || 2000} kcal</span>
                       </div>
-                      <div className="w-full bg-slate-100 rounded-full h-1.5 mb-2 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${plan.totalCaloriesKcal > plan.targetCaloriesKcal ? 'bg-destructive' : 'bg-primary'}`}
-                          style={{ width: `${Math.min(((plan.totalCaloriesKcal || 0) / (plan.targetCaloriesKcal || 2000)) * 100, 100)}%` }}
-                        />
-                      </div>
+                      {(() => {
+                        const pct =
+                          ((plan.totalCaloriesKcal || 0) /
+                            (plan.targetCaloriesKcal || 2000)) *
+                          100;
+                        let color = 'bg-primary';
+                        if (pct < 50 || pct > 130) color = 'bg-red-500';
+                        else if (pct < 80 || (pct > 110 && pct <= 130))
+                          color = 'bg-yellow-500';
+                        return (
+                          <div className="w-full bg-slate-100 rounded-full h-1.5 mb-2 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${color}`}
+                              style={{
+                                width: `${Math.min(pct, 100)}%`,
+                              }}
+                            />
+                          </div>
+                        );
+                      })()}
                       <span className="text-xs text-muted-foreground font-medium">Đã lên thực đơn</span>
                     </div>
                   ) : (

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, FileText, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, FileText, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { useToast } from '../../hooks/use-toast';
 import { useUserStore } from '../../store/userStore';
 import { mealService } from '../../api/mealService';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 
 import NutritionSummaryBar from './components/NutritionSummaryBar';
 import MealSlotFrame from './components/MealSlotFrame';
@@ -23,6 +24,7 @@ const MealDetailPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeMealType, setActiveMealType] = useState(null);
   const [mealPlan, setMealPlan] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     const fetchPlan = async () => {
@@ -108,6 +110,20 @@ const MealDetailPage = () => {
     }
   };
 
+  const handleDeletePlan = async () => {
+    try {
+      await mealService.deleteMealPlan(id);
+      toast({ title: 'Đã xóa kế hoạch' });
+      navigate('/meal-plans/manage');
+    } catch {
+      toast({ variant: 'destructive', title: 'Không thể xóa kế hoạch' });
+    }
+  };
+
+  const handleSaveTemplate = () => {
+    toast({ title: 'Thông báo', description: 'Tính năng lưu mẫu sẽ được cập nhật sau.' });
+  };
+
   const calculateDailyTotals = () => {
     if (!mealPlan) return { calories: 0, protein: 0, carb: 0, fat: 0 };
     return Object.values(mealPlan.meals).reduce((totals, portions) => {
@@ -142,8 +158,11 @@ const MealDetailPage = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => {}}>
+          <Button variant="outline" onClick={handleSaveTemplate}>
             <FileText className="h-4 w-4 mr-2" /> Lưu thành Mẫu
+          </Button>
+          <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
+            <Trash2 className="h-4 w-4 mr-2" /> Xóa kế hoạch
           </Button>
           <Button onClick={handleSave} disabled={isSaving}>
             <Save className="h-4 w-4 mr-2" />
@@ -171,6 +190,16 @@ const MealDetailPage = () => {
         onClose={() => setIsModalOpen(false)}
         currentMealType={activeMealType}
         onAddDish={handleAddDish}
+      />
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Xác nhận xóa"
+        description="Bạn có chắc muốn xóa kế hoạch này? Thao tác này không thể hoàn tác."
+        confirmLabel="Xóa"
+        variant="danger"
+        onConfirm={handleDeletePlan}
       />
     </div>
   );

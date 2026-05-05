@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, ShieldOff, Shield, Trash2 } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Search, ShieldOff, Shield, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
@@ -8,46 +8,64 @@ import {
   TableHead, TableHeader, TableRow,
 } from '../../components/ui/table';
 import { useToast } from '../../hooks/use-toast';
-
-const MOCK_USERS = [
-  { id: 1, username: 'nguyen_van_a', email: 'nva@mail.com', role: 'USER', isActive: true, createdAt: '2026-01-15' },
-  { id: 2, username: 'tran_thi_b',   email: 'ttb@mail.com', role: 'USER', isActive: true, createdAt: '2026-02-20' },
-  { id: 3, username: 'le_van_c',     email: 'lvc@mail.com', role: 'USER', isActive: false, createdAt: '2026-03-10' },
-  { id: 4, username: 'admin_main',   email: 'admin@nutriplan.vn', role: 'ADMIN', isActive: true, createdAt: '2025-12-01' },
-];
+import { adminService } from '../../api/adminService';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 
 const AdminUserPage = () => {
-  const [users, setUsers] = useState(MOCK_USERS);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const { toast } = useToast();
 
-  const handleToggleStatus = (userId) => {
-    setUsers(prev => prev.map(u =>
-      u.id === userId ? { ...u, isActive: !u.isActive } : u
-    ));
-    const user = users.find(u => u.id === userId);
-    toast({
-      title: user.isActive ? 'Đã vô hiệu hóa tài khoản' : 'Đã kích hoạt tài khoản',
-      description: `Tài khoản @${user.username} đã được cập nhật.`,
-    });
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = { page, size: 20 };
+      if (searchTerm) params.keyword = searchTerm;
+      const data = await adminService.getAllUsers(params);
+      const content = data?.content || data || [];
+      setUsers(Array.isArray(content) ? content : []);
+      setTotalPages(data?.totalPages || 1);
+    } catch {
+      toast({ variant: 'destructive', title: 'Không thể tải danh sách người dùng' });
+    } finally {
+      setLoading(false);
+    }
+  }, [page, searchTerm, toast]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleToggleStatus = async (user) => {
+    try {
+      if (user.status === 'active') {
+        await adminService.lockUser(user.id);
+        toast({ title: `Đã khóa tài khoản @${user.username}` });
+      } else {
+        await adminService.unlockUser(user.id);
+        toast({ title: `Đã mở khóa tài khoản @${user.username}` });
+      }
+      fetchUsers();
+    } catch {
+      toast({ variant: 'destructive', title: 'Thao tác thất bại' });
+    }
   };
 
-  const handleDelete = (userId) => {
-    const user = users.find(u => u.id === userId);
-    if (user.role === 'ADMIN') {
-      toast({ variant: 'destructive', title: 'Không thể xóa tài khoản Admin!' });
-      return;
-    }
-    if (window.confirm(`Xóa tài khoản @${user.username}? Hành động này không thể hoàn tác.`)) {
-      setUsers(prev => prev.filter(u => u.id !== userId));
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await adminService.deleteUser(deleteTarget.id);
       toast({ title: 'Đã xóa tài khoản' });
+      setDeleteTarget(null);
+      fetchUsers();
+    } catch {
+      toast({ variant: 'destructive', title: 'Không thể xóa tài khoản' });
     }
   };
-
-  const filtered = users.filter(u =>
-    u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div className="py-6">
@@ -57,7 +75,10 @@ const AdminUserPage = () => {
       </div>
 
       <div className="bg-white rounded-md border shadow-sm p-4">
-        <div className="relative max-w-sm mb-4">
+        <form
+          onSubmit={(e) => { e.preventDefault(); setPage(0); fetchUsers(); }}
+          className="relative max-w-sm mb-4"
+        >
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Tìm kiếm theo tên hoặc email..."
@@ -65,65 +86,115 @@ const AdminUserPage = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-        </div>
+        </form>
 
         <div className="border rounded-md">
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50">
+                <TableHead>ID</TableHead>
                 <TableHead>Tên đăng nhập</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Vai trò</TableHead>
                 <TableHead>Trạng thái</TableHead>
-                <TableHead className="hidden sm:table-cell">Ngày tạo</TableHead>
                 <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">@{user.username}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{user.email}</TableCell>
-                  <TableCell>
-                    <Badge variant={user.role === 'ADMIN' ? 'default' : 'secondary'}>
-                      {user.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={user.isActive ? 'outline' : 'destructive'} className={user.isActive ? 'border-green-500 text-green-600' : ''}>
-                      {user.isActive ? 'Hoạt động' : 'Bị khóa'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                    {user.createdAt}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title={user.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
-                      onClick={() => handleToggleStatus(user.id)}
-                    >
-                      {user.isActive
-                        ? <ShieldOff className="h-4 w-4 text-amber-500" />
-                        : <Shield className="h-4 w-4 text-green-500" />
-                      }
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(user.id)}
-                      disabled={user.role === 'ADMIN'}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : users.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                    Không có người dùng nào.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="text-muted-foreground text-sm">{user.id}</TableCell>
+                    <TableCell className="font-medium">@{user.username}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{user.email}</TableCell>
+                    <TableCell>
+                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                        {user.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={user.status === 'active' ? 'outline' : 'destructive'}
+                        className={user.status === 'active' ? 'border-green-500 text-green-600' : ''}
+                      >
+                        {user.status === 'active' ? 'Hoạt động' : user.status === 'locked' ? 'Bị khóa' : 'Đã xóa'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title={user.status === 'active' ? 'Khóa' : 'Mở khóa'}
+                        onClick={() => handleToggleStatus(user)}
+                        disabled={user.role === 'admin'}
+                      >
+                        {user.status === 'active'
+                          ? <ShieldOff className="h-4 w-4 text-amber-500" />
+                          : <Shield className="h-4 w-4 text-green-500" />
+                        }
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDeleteTarget(user)}
+                        disabled={user.role === 'admin'}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 0}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              Trước
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Trang {page + 1} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Sau
+            </Button>
+          </div>
+        )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Xác nhận xóa"
+        description={`Bạn có chắc muốn xóa tài khoản @${deleteTarget?.username}? Thao tác này không thể hoàn tác.`}
+        confirmLabel="Xóa"
+        variant="danger"
+        onConfirm={handleDelete}
+      />
     </div>
   );
 };

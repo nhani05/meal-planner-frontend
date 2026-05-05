@@ -1,12 +1,8 @@
-import { Users, ChefHat, CalendarDays, TrendingUp, AlertCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Users, ChefHat, CalendarDays, TrendingUp, AlertCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-
-const MOCK_STATS = {
-  totalUsers: 1248,
-  totalDishes: 356,
-  totalMealPlans: 4523,
-  pendingDishes: 7,
-};
+import { adminService } from '../../api/adminService';
+import { useToast } from '../../hooks/use-toast';
 
 const StatCard = ({ title, value, icon, description, highlight }) => (
   <Card className={highlight ? 'border-amber-300 bg-amber-50' : ''}>
@@ -26,6 +22,33 @@ const StatCard = ({ title, value, icon, description, highlight }) => (
 );
 
 const AdminDashboardPage = () => {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        const data = await adminService.getStats();
+        setStats(data);
+      } catch {
+        toast({ title: 'Lỗi', description: 'Không thể tải thống kê.', variant: 'destructive' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="py-6">
       <div className="mb-8">
@@ -36,28 +59,28 @@ const AdminDashboardPage = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
         <StatCard
           title="Tổng người dùng"
-          value={MOCK_STATS.totalUsers.toLocaleString()}
+          value={stats?.totalUsers ?? 0}
           icon={<Users className="w-5 h-5" />}
-          description="+12 người mới trong tuần này"
+          description="Người dùng trong hệ thống"
         />
         <StatCard
           title="Tổng món ăn"
-          value={MOCK_STATS.totalDishes.toLocaleString()}
+          value={stats?.totalDishes ?? 0}
           icon={<ChefHat className="w-5 h-5" />}
-          description="Đã được phê duyệt"
+          description="Món ăn đã có"
         />
         <StatCard
-          title="Kế hoạch bữa ăn"
-          value={MOCK_STATS.totalMealPlans.toLocaleString()}
+          title="Kế hoạch hôm nay"
+          value={stats?.activePlansToday ?? 0}
           icon={<CalendarDays className="w-5 h-5" />}
-          description="Tổng kế hoạch đã tạo"
+          description="Kế hoạch đang hoạt động"
         />
         <StatCard
-          title="Chờ duyệt món ăn"
-          value={MOCK_STATS.pendingDishes}
+          title="Phản hồi mới"
+          value={stats?.newFeedbacks ?? 0}
           icon={<AlertCircle className="w-5 h-5" />}
-          description="Cần xem xét và phê duyệt"
-          highlight={MOCK_STATS.pendingDishes > 0}
+          description="Cần xử lý"
+          highlight={(stats?.newFeedbacks ?? 0) > 0}
         />
       </div>
 
@@ -70,22 +93,7 @@ const AdminDashboardPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-3 text-sm">
-              {[
-                { action: 'Người dùng mới đăng ký', who: 'user@mail.com', time: '5 phút trước' },
-                { action: 'Món ăn mới chờ duyệt', who: '"Phở bò tái"', time: '20 phút trước' },
-                { action: 'Người dùng tạo kế hoạch', who: 'user2@mail.com', time: '1 giờ trước' },
-                { action: 'Món ăn được phê duyệt', who: '"Cơm sườn bí đao"', time: '2 giờ trước' },
-              ].map((item, i) => (
-                <li key={i} className="flex justify-between items-start border-b last:border-0 pb-2 last:pb-0">
-                  <div>
-                    <span className="font-medium">{item.action}:</span>{' '}
-                    <span className="text-muted-foreground">{item.who}</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">{item.time}</span>
-                </li>
-              ))}
-            </ul>
+            <p className="text-sm text-muted-foreground">Dữ liệu hoạt động sẽ được cập nhật trong phiên bản tới.</p>
           </CardContent>
         </Card>
 
@@ -97,23 +105,7 @@ const AdminDashboardPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-3 text-sm">
-              {[
-                { name: 'Phở bò tái', submittedBy: 'chef_nguyen', time: '20 phút trước' },
-                { name: 'Bánh xèo miền Tây', submittedBy: 'cook_tran', time: '1 giờ trước' },
-                { name: 'Canh chua cá lóc', submittedBy: 'foodie_le', time: '3 giờ trước' },
-              ].map((dish, i) => (
-                <li key={i} className="flex justify-between items-center border-b last:border-0 pb-2 last:pb-0">
-                  <div>
-                    <p className="font-medium">{dish.name}</p>
-                    <p className="text-xs text-muted-foreground">bởi @{dish.submittedBy} · {dish.time}</p>
-                  </div>
-                  <span className="text-xs bg-amber-100 text-amber-700 font-medium px-2 py-0.5 rounded-full">
-                    Chờ duyệt
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <p className="text-sm text-muted-foreground">Danh sách chờ duyệt sẽ được cập nhật trong phiên bản tới.</p>
           </CardContent>
         </Card>
       </div>

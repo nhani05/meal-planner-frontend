@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { userService } from '../../api/userService';
+import { authService } from '../../api/authService';
 import { useUserStore } from '../../store/userStore';
 import { useToast } from '../../hooks/use-toast';
 
@@ -36,6 +37,15 @@ const healthGoalSchema = z.object({
   target_weight_kg: z.coerce.number().min(10).max(300).optional(),
 });
 
+const changePasswordSchema = z.object({
+  oldPassword: z.string().min(1, 'Vui lòng nhập mật khẩu cũ'),
+  newPassword: z.string().min(6, 'Mật khẩu mới tối thiểu 6 ký tự'),
+  confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: 'Mật khẩu xác nhận không khớp',
+  path: ['confirmPassword'],
+});
+
 const ProfilePage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -59,6 +69,15 @@ const ProfilePage = () => {
       goal_type: 'maintain',
       activity_level: 'medium',
       target_weight_kg: 60,
+    },
+  });
+
+  const passwordForm = useForm({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: {
+      oldPassword: '',
+      newPassword: '',
+      confirmPassword: '',
     },
   });
 
@@ -134,6 +153,23 @@ const ProfilePage = () => {
     }
   };
 
+  const onPasswordSubmit = async (values) => {
+    setIsSaving(true);
+    try {
+      await authService.changePassword(values.oldPassword, values.newPassword);
+      toast({ title: "Thành công", description: "Mật khẩu đã được thay đổi. Vui lòng đăng nhập lại." });
+      passwordForm.reset();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể đổi mật khẩu.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="text-center py-12 font-medium">Đang tải thông tin hồ sơ...</div>;
   }
@@ -146,9 +182,10 @@ const ProfilePage = () => {
       </div>
       
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-md mb-8 bg-slate-100 p-1 rounded-xl">
+        <TabsList className="grid w-full grid-cols-3 max-w-lg mb-8 bg-slate-100 p-1 rounded-xl">
           <TabsTrigger value="profile" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Thông tin cơ bản</TabsTrigger>
           <TabsTrigger value="health-goal" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Mục tiêu sức khỏe</TabsTrigger>
+          <TabsTrigger value="change-password" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Đổi mật khẩu</TabsTrigger>
         </TabsList>
         
         <TabsContent value="profile" className="focus-visible:outline-none">
@@ -338,6 +375,65 @@ const ProfilePage = () => {
 
                   <Button type="submit" disabled={isSaving} className="w-full md:w-auto px-10 h-11">
                     {isSaving ? 'Đang lưu...' : 'Lưu mục tiêu'}
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="change-password" className="focus-visible:outline-none">
+          <Card className="border-none shadow-md overflow-hidden">
+            <CardHeader className="bg-slate-50 border-b">
+              <CardTitle className="text-xl">Đổi mật khẩu</CardTitle>
+              <CardDescription>
+                Cập nhật mật khẩu để bảo mật tài khoản.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <Form {...passwordForm}>
+                <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-6 max-w-md">
+                  <FormField
+                    control={passwordForm.control}
+                    name="oldPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-slate-700">Mật khẩu cũ</FormLabel>
+                        <FormControl>
+                          <Input type="password" className="h-11" placeholder="Nhập mật khẩu cũ" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={passwordForm.control}
+                    name="newPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-slate-700">Mật khẩu mới</FormLabel>
+                        <FormControl>
+                          <Input type="password" className="h-11" placeholder="Tối thiểu 6 ký tự" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={passwordForm.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-slate-700">Xác nhận mật khẩu mới</FormLabel>
+                        <FormControl>
+                          <Input type="password" className="h-11" placeholder="Nhập lại mật khẩu mới" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" disabled={isSaving} className="w-full md:w-auto px-10 h-11">
+                    {isSaving ? 'Đang lưu...' : 'Đổi mật khẩu'}
                   </Button>
                 </form>
               </Form>

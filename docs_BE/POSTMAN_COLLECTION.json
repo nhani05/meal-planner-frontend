@@ -63,6 +63,91 @@
             ],
             "url": "{{baseUrl}}/auth/user/1"
           }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/logout"
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/forgot-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"tester1@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/verify-otp",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"tester1@example.com\",\n  \"otp\": \"123456\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/reset-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"123456\",\n  \"newPassword\": \"NewP@ssw0rd\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/change-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"P@ssw0rd\",\n  \"newPassword\": \"NewP@ssw0rd\"\n}"
+            }
+          }
         }
       ]
     },
@@ -157,6 +242,100 @@
           }
         },
         {
+          "name": "Get Dish By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/dishes/1"
+          }
+        },
+        {
+          "name": "Get System Dishes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/dishes/system"
+          }
+        },
+        {
+          "name": "Get Account Dishes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/dishes/account/1"
+          }
+        },
+        {
+          "name": "Create Dish",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/dishes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Grilled Salmon\",\n  \"categoryId\": 1,\n  \"imageUrl\": \"https://example.com/salmon.jpg\",\n  \"source\": \"custom\",\n  \"difficulty\": \"medium\",\n  \"totalTimeMin\": 30\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Dish",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/dishes/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Grilled Salmon (Updated)\",\n  \"totalTimeMin\": 35\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Dish",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/dishes/1"
+          }
+        },
+        {
           "name": "Rate Dish",
           "request": {
             "method": "POST",
@@ -229,6 +408,19 @@
       "name": "Meal Plans & Portions",
       "item": [
         {
+          "name": "Get Plans By Account",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/meal-plans/account/1"
+          }
+        },
+        {
           "name": "Create Meal Plan",
           "request": {
             "method": "POST",
@@ -260,6 +452,79 @@
               }
             ],
             "url": "{{baseUrl}}/meal-plans/account/1/date/2026-05-04"
+          }
+        },
+        {
+          "name": "Get Meal Plan By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/meal-plans/1"
+          }
+        },
+        {
+          "name": "Get Meals By Plan",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/meal-plans/1/meals"
+          }
+        },
+        {
+          "name": "Get Meal Plan Templates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/meal-plan-templates?accountId=1"
+          }
+        },
+        {
+          "name": "Update Meal Plan",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/meal-plans/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planName\": \"Updated Diet Plan\",\n  \"planDate\": \"2026-05-05\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Meal Plan",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/meal-plans/1"
           }
         },
         {
@@ -322,6 +587,32 @@
     {
       "name": "Ingredients",
       "item": [
+        {
+          "name": "Get Ingredients (Paged)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/ingredients?page=0&size=20"
+          }
+        },
+        {
+          "name": "Search Ingredients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/ingredients?page=0&size=20&search=chicken"
+          }
+        },
         {
           "name": "Create Ingredient",
           "request": {
@@ -435,6 +726,32 @@
           }
         },
         {
+          "name": "Unlock User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/users/2/unlock"
+          }
+        },
+        {
+          "name": "Delete User (Soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/users/2"
+          }
+        },
+        {
           "name": "Get Feedbacks",
           "request": {
             "method": "GET",
@@ -466,6 +783,87 @@
               "mode": "raw",
               "raw": "{\n  \"status\": \"resolved\"\n}"
             }
+          }
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/users/1"
+          }
+        },
+        {
+          "name": "Get Admin Dishes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/dishes?keyword=chicken&categoryId=1&page=0&size=20"
+          }
+        },
+        {
+          "name": "Create Admin Dish",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/dishes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dish\": {\n    \"name\": \"Grilled Chicken Salad\",\n    \"categoryId\": 1,\n    \"imageUrl\": \"https://example.com/salad.jpg\",\n    \"difficulty\": \"easy\",\n    \"totalTimeMin\": 30\n  },\n  \"nutrition\": {\n    \"caloriesPer100g\": 120.50,\n    \"proteinPer100g\": 15.00,\n    \"carbPer100g\": 5.00,\n    \"fatPer100g\": 4.00\n  },\n  \"ingredients\": [\n    { \"name\": \"Chicken Breast\", \"quantityG\": 200.0, \"unit\": \"g\" },\n    { \"name\": \"Lettuce\", \"quantityG\": 100.0, \"unit\": \"g\" }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Admin Dish",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/dishes/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dish\": {\n    \"name\": \"Updated Grilled Chicken Salad\",\n    \"categoryId\": 1,\n    \"imageUrl\": \"https://example.com/salad.jpg\",\n    \"difficulty\": \"medium\",\n    \"totalTimeMin\": 35\n  },\n  \"nutrition\": {\n    \"caloriesPer100g\": 130.00,\n    \"proteinPer100g\": 16.00,\n    \"carbPer100g\": 6.00,\n    \"fatPer100g\": 4.50\n  },\n  \"ingredients\": [\n    { \"name\": \"Chicken Breast\", \"quantityG\": 250.0, \"unit\": \"g\" },\n    { \"name\": \"Lettuce\", \"quantityG\": 100.0, \"unit\": \"g\" }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Admin Dish",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/dishes/1"
           }
         }
       ]

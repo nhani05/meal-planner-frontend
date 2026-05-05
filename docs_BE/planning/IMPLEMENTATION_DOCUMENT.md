@@ -986,6 +986,8 @@ Hoặc mảng:
 | `GET` | `/auth/user/{id}` | Lấy thông tin tài khoản theo ID | Bearer |
 | `GET` | `/health-profile/{accountId}` | Lấy hồ sơ sức khỏe | Bearer |
 | `POST` | `/health-profile/{accountId}` | Tạo/cập nhật hồ sơ sức khỏe | Bearer |
+| `GET` | `/health-goal/{accountId}` | Lấy mục tiêu sức khỏe | Bearer |
+| `POST` | `/health-goal/{accountId}` | Tạo/cập nhật mục tiêu sức khỏe | Bearer |
 | `GET` | `/dishes` | Lấy toàn bộ món ăn | Bearer |
 | `GET` | `/dishes/{id}` | Lấy chi tiết một món ăn | Bearer |
 | `GET` | `/dishes/system` | Lấy món ăn hệ thống | Bearer |
@@ -993,11 +995,31 @@ Hoặc mảng:
 | `POST` | `/dishes` | Tạo món ăn mới | Bearer |
 | `PUT` | `/dishes/{id}` | Cập nhật thông tin món ăn | Bearer |
 | `DELETE` | `/dishes/{id}` | Xóa món ăn | Bearer |
+| `GET` | `/dish-categories` | Lấy danh sách danh mục món ăn | Bearer |
+| `POST` | `/dishes/{dishId}/ratings` | Đánh giá món ăn | Bearer |
+| `GET` | `/dishes/{dishId}/ratings` | Lấy đánh giá món ăn | Bearer |
+| `GET` | `/favorites/account/{accountId}` | Lấy danh sách yêu thích | Bearer |
+| `POST` | `/favorites/account/{accountId}/{dishId}` | Thêm món vào yêu thích | Bearer |
+| `DELETE` | `/favorites/account/{accountId}/{dishId}` | Xóa món khỏi yêu thích | Bearer |
+| `POST` | `/ingredients` | Tạo nguyên liệu | Bearer |
+| `PUT` | `/ingredients/{id}` | Cập nhật nguyên liệu | Bearer |
+| `GET` | `/ingredients/{id}` | Lấy chi tiết nguyên liệu | Bearer |
+| `DELETE` | `/ingredients/{id}` | Xóa nguyên liệu | Bearer |
 | `GET` | `/meal-plans/account/{accountId}` | Lấy danh sách kế hoạch của user | Bearer |
 | `GET` | `/meal-plans/account/{accountId}/date/{planDate}` | Lấy kế hoạch theo ngày cụ thể | Bearer |
 | `POST` | `/meal-plans?accountId={id}` | Tạo kế hoạch bữa ăn mới | Bearer |
 | `PUT` | `/meal-plans/{id}` | Cập nhật kế hoạch | Bearer |
 | `DELETE` | `/meal-plans/{id}` | Xóa kế hoạch (cascade) | Bearer |
+| `POST` | `/meal-plans/{planId}/meals/{mealType}/portions` | Thêm khẩu phần vào bữa ăn | Bearer |
+| `PUT` | `/meal-plans/{planId}/meals/{mealType}/portions/{portionId}` | Cập nhật khẩu phần | Bearer |
+| `DELETE` | `/meal-plans/{planId}/meals/{mealType}/portions/{portionId}` | Xóa khẩu phần | Bearer |
+| `GET` | `/admin/statistics` | Thống kê dashboard | Bearer (Admin) |
+| `GET` | `/admin/users` | Danh sách người dùng | Bearer (Admin) |
+| `PATCH` | `/admin/users/{id}/lock` | Khóa tài khoản | Bearer (Admin) |
+| `PATCH` | `/admin/users/{id}/unlock` | Mở khóa tài khoản | Bearer (Admin) |
+| `DELETE` | `/admin/users/{id}` | Xóa mềm tài khoản | Bearer (Admin) |
+| `GET` | `/admin/feedbacks` | Danh sách phản hồi | Bearer (Admin) |
+| `PATCH` | `/admin/feedbacks/{id}/status` | Cập nhật trạng thái phản hồi | Bearer (Admin) |
 
 ---
 
@@ -1405,20 +1427,20 @@ npm run dev            # http://localhost:5173
 | UC03 | Đăng xuất | `AuthController` | (client-side: xóa token khỏi store) | — |
 | UC04 | Lấy lại mật khẩu | `AuthController` | `AuthService` (cần implement) | `PasswordResetTokenRepository` |
 | UC05 | Cập nhật thông tin | `HealthProfileController` | `HealthProfileServiceImpl` | `HealthProfileRepository` |
-| UC06 | Thiết lập mục tiêu | `HealthProfileController` | `GoalService` (cần implement) | `HealthGoalRepository` |
+| UC06 | Thiết lập mục tiêu | `HealthGoalController` | `HealthGoalServiceImpl` | `HealthGoalRepository` |
 | UC07 | Tạo kế hoạch | `MealPlanController` | `MealPlanServiceImpl` | `MealPlanRepository` |
-| UC08 | Thêm món vào kế hoạch | `MealPlanController` | `MealPlanService`, `PortionService` (cần implement) | `PortionRepository`, `DishRepository` |
-| UC09 | Chỉnh sửa kế hoạch | `MealPlanController` | `MealPlanServiceImpl` | `MealPlanRepository`, `PortionRepository` |
+| UC08 | Thêm món vào kế hoạch | `PortionController` | `PortionServiceImpl` | `PortionRepository`, `DishRepository`, `NutritionInfoRepository` |
+| UC09 | Chỉnh sửa kế hoạch | `MealPlanController`, `PortionController` | `MealPlanServiceImpl`, `PortionServiceImpl` | `MealPlanRepository`, `PortionRepository` |
 | UC10 | Xóa kế hoạch | `MealPlanController` | `MealPlanServiceImpl` | `MealPlanRepository` |
 | UC11 | Xem lịch kế hoạch | `MealPlanController` | `MealPlanServiceImpl` | `MealPlanRepository` |
 | UC12 | Lưu kế hoạch mẫu | `MealPlanController` | `TemplateService` (cần implement) | `MealPlanTemplateRepository`, `TemplateMealRepository`, `TemplatePortionRepository` |
 | UC13 | Tìm kiếm món ăn | `DishController` | `DishServiceImpl` | `DishRepository` |
 | UC14 | Thêm món tùy chỉnh | `DishController` | `DishServiceImpl` | `DishRepository`, `NutritionInfoRepository`, `IngredientRepository` |
-| UC15 | Lưu yêu thích | `DishController` | `FavoriteService` (cần implement) | `FavoriteDishRepository` |
-| UC16 | Admin – quản lý users | `AdminController` (cần implement) | `AdminService` (cần implement) | `UserAccountRepository` |
-| UC17 | Admin – quản lý món ăn | `AdminController` | `AdminDishService` (cần implement) | `DishRepository`, `NutritionInfoRepository` |
-| UC18 | Admin – thống kê | `AdminController` | `StatisticsService` (cần implement) | (Aggregate queries) |
-| UC19 | Admin – phản hồi | `AdminController` | `FeedbackService` (cần implement) | `UserFeedbackRepository` (cần tạo) |
+| UC15 | Lưu yêu thích | `FavoriteDishController` | `FavoriteDishServiceImpl` | `FavoriteDishRepository` |
+| UC16 | Admin – quản lý users | `AdminController` | `AdminServiceImpl` | `UserAccountRepository` |
+| UC17 | Admin – quản lý món ăn | `DishController` (dùng chung) / `AdminController` (cần bổ sung) | `DishServiceImpl` / `AdminServiceImpl` (cần bổ sung) | `DishRepository`, `NutritionInfoRepository` |
+| UC18 | Admin – thống kê | `AdminController` | `AdminServiceImpl` | `UserAccountRepository`, `DishRepository`, `MealPlanRepository`, `UserFeedbackRepository` |
+| UC19 | Admin – phản hồi | `AdminController` | `AdminServiceImpl` | `UserFeedbackRepository` |
 
 ---
 

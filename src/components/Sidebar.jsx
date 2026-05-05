@@ -5,13 +5,18 @@ import {
   List, 
   User, 
   LayoutDashboard,
-  ChefHat
+  ChefHat,
+  Heart,
+  Bookmark
 } from 'lucide-react';
 
 const Sidebar = () => {
   const navItems = [
-    { name: 'Lịch thực đơn', path: '/meal-plans', icon: <Calendar className="w-5 h-5" /> },
+    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { name: 'Lịch thực đơn', path: '/meal-plans/manage', icon: <Calendar className="w-5 h-5" /> },
     { name: 'Danh sách món ăn', path: '/dishes', icon: <ChefHat className="w-5 h-5" /> },
+    { name: 'Món ăn của tôi', path: '/my-dishes', icon: <Utensils className="w-5 h-5" /> },
+    { name: 'Yêu thích', path: '/favorites', icon: <Heart className="w-5 h-5" /> },
     { name: 'Nguyên liệu', path: '/ingredients', icon: <List className="w-5 h-5" /> },
     { name: 'Hồ sơ sức khỏe', path: '/profile', icon: <User className="w-5 h-5" /> },
   ];

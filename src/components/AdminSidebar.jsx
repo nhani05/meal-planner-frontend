@@ -4,7 +4,9 @@ import {
   Users, 
   ChefHat, 
   ArrowLeft,
-  ShieldCheck
+  ShieldCheck,
+  BarChart3,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
@@ -15,6 +17,8 @@ const AdminSidebar = () => {
     { name: 'Tổng quan', path: '/admin', icon: <LayoutDashboard className="w-5 h-5" />, end: true },
     { name: 'Quản lý Người dùng', path: '/admin/users', icon: <Users className="w-5 h-5" /> },
     { name: 'Duyệt Món ăn', path: '/admin/dishes', icon: <ChefHat className="w-5 h-5" /> },
+    { name: 'Thống kê', path: '/admin/stats', icon: <BarChart3 className="w-5 h-5" /> },
+    { name: 'Phản hồi', path: '/admin/feedbacks', icon: <MessageSquare className="w-5 h-5" /> },
   ];
 
   return (

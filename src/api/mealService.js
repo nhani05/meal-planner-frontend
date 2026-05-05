@@ -49,7 +49,7 @@ export const mealService = {
   // DELETE /meal-plans/{id}
   deleteMealPlan: async (id) => {
     const response = await api.delete(`/meal-plans/${id}`);
-    return response.data;
+    return response.status === 204 || response.data;
   },
 
   // ─── Portions ───
@@ -73,7 +73,7 @@ export const mealService = {
     const response = await api.delete(
       `/meal-plans/${planId}/meals/${mealType}/portions/${portionId}`
     );
-    return response.data;
+    return response.status === 204 || response.data;
   },
 
   // GET /meal-plan-templates
