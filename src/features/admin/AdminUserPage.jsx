@@ -10,6 +10,7 @@ import {
 import { useToast } from '../../hooks/use-toast';
 import { adminService } from '../../api/adminService';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { SkeletonTable } from '../../components/SkeletonCard';
 
 const AdminUserPage = () => {
   const [users, setUsers] = useState([]);
@@ -103,8 +104,8 @@ const AdminUserPage = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                  <TableCell colSpan={6} className="h-24">
+                    <SkeletonTable rows={5} cols={6} />
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (

@@ -11,6 +11,7 @@ import { useToast } from '../../hooks/use-toast';
 import { adminService } from '../../api/adminService';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import AdminDishModal from './components/AdminDishModal';
+import { SkeletonTable } from '../../components/SkeletonCard';
 
 const AdminDishPage = () => {
   const [dishes, setDishes] = useState([]);
@@ -127,8 +128,8 @@ const AdminDishPage = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                  <TableCell colSpan={5} className="h-24">
+                    <SkeletonTable rows={5} cols={5} />
                   </TableCell>
                 </TableRow>
               ) : dishes.length === 0 ? (

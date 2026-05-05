@@ -25,6 +25,7 @@ import { dishService } from '../../api/dishService';
 import { userService } from '../../api/userService';
 import { useAuthStore } from '../../store/authStore';
 import { EmptyState } from '../../components/EmptyState';
+import { SkeletonImageCard } from '../../components/SkeletonCard';
 
 const CALORIE_RANGES = [
   { label: 'Tất cả', min: '', max: '' },
@@ -197,9 +198,7 @@ const DishPage = () => {
 
       {/* Grid */}
       {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <SkeletonImageCard count={8} />
       ) : filteredDishes.length === 0 ? (
         <EmptyState
           title="Không tìm thấy món ăn"
