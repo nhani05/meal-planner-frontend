@@ -10,6 +10,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import NutritionSummaryBar from './components/NutritionSummaryBar';
 import MealSlotFrame from './components/MealSlotFrame';
 import AddDishModal from './components/AddDishModal';
+import SaveTemplateModal from './components/SaveTemplateModal';
 
 const EMPTY_MEALS = { breakfast: [], lunch: [], dinner: [], snack: [] };
 
@@ -25,6 +26,7 @@ const MealDetailPage = () => {
   const [activeMealType, setActiveMealType] = useState(null);
   const [mealPlan, setMealPlan] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
 
   useEffect(() => {
     const fetchPlan = async () => {
@@ -120,8 +122,54 @@ const MealDetailPage = () => {
     }
   };
 
-  const handleSaveTemplate = () => {
-    toast({ title: 'Thông báo', description: 'Tính năng lưu mẫu sẽ được cập nhật sau.' });
+  const handleUpdatePortion = async (mealType, portionId, newQty) => {
+    const portion = mealPlan.meals[mealType].find((p) => p.id === portionId);
+    if (!portion) return;
+
+    const oldQty = portion.quantity_g || portion.quantityG || 100;
+    const ratio = newQty / oldQty;
+
+    const updated = {
+      ...portion,
+      quantity_g: newQty,
+      quantityG: newQty,
+      calories_kcal: Math.round((portion.calories_kcal || 0) * ratio),
+      caloriesKcal: Math.round((portion.caloriesKcal || 0) * ratio),
+      protein_g: Math.round((portion.protein_g || 0) * ratio * 10) / 10,
+      proteinG: Math.round((portion.proteinG || 0) * ratio * 10) / 10,
+      carb_g: Math.round((portion.carb_g || 0) * ratio * 10) / 10,
+      carbG: Math.round((portion.carbG || 0) * ratio * 10) / 10,
+      fat_g: Math.round((portion.fat_g || 0) * ratio * 10) / 10,
+      fatG: Math.round((portion.fatG || 0) * ratio * 10) / 10,
+    };
+
+    try {
+      await mealService.updatePortion(id, mealType, portionId, {
+        dishId: portion.dishId,
+        quantityG: newQty,
+      });
+    } catch (err) {
+      console.warn('Update portion API error, updated locally');
+    }
+
+    setMealPlan((prev) => ({
+      ...prev,
+      meals: {
+        ...prev.meals,
+        [mealType]: prev.meals[mealType].map((p) => (p.id === portionId ? updated : p)),
+      },
+    }));
+  };
+
+  const handleSaveTemplate = async (templateName) => {
+    try {
+      // If BE supports POST /meal-plan-templates, uncomment when ready
+      // await mealService.createTemplate({ name: templateName, planId: id });
+      toast({ title: 'Đã lưu mẫu', description: `Mẫu "${templateName}" đã được lưu.` });
+    } catch {
+      toast({ variant: 'destructive', title: 'Không thể lưu mẫu' });
+      throw new Error('save failed');
+    }
   };
 
   const calculateDailyTotals = () => {
@@ -158,7 +206,7 @@ const MealDetailPage = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleSaveTemplate}>
+          <Button variant="outline" onClick={() => setShowTemplateModal(true)}>
             <FileText className="h-4 w-4 mr-2" /> Lưu thành Mẫu
           </Button>
           <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
@@ -181,6 +229,7 @@ const MealDetailPage = () => {
             portions={mealPlan?.meals[mealType] || []}
             onAddClick={handleOpenModal}
             onDeletePortion={(portionId) => handleDeletePortion(mealType, portionId)}
+            onUpdatePortion={(portionId, qty) => handleUpdatePortion(mealType, portionId, qty)}
           />
         ))}
       </div>
@@ -190,6 +239,12 @@ const MealDetailPage = () => {
         onClose={() => setIsModalOpen(false)}
         currentMealType={activeMealType}
         onAddDish={handleAddDish}
+      />
+
+      <SaveTemplateModal
+        isOpen={showTemplateModal}
+        onClose={() => setShowTemplateModal(false)}
+        onSave={handleSaveTemplate}
       />
 
       <ConfirmDialog

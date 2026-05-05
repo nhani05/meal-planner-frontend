@@ -67,6 +67,26 @@ const CreateMealPlanPage = () => {
     }));
   };
 
+  const handleUpdatePortion = (mealType, portionId, newQty) => {
+    setMeals(prev => ({
+      ...prev,
+      [mealType]: prev[mealType].map(p => {
+        if (p.id !== portionId) return p;
+        const oldQty = p.quantity_g || p.quantityG || 100;
+        const ratio = newQty / oldQty;
+        return {
+          ...p,
+          quantity_g: newQty,
+          quantityG: newQty,
+          calories_kcal: Math.round((p.calories_kcal || 0) * ratio),
+          protein_g: Math.round((p.protein_g || 0) * ratio * 10) / 10,
+          carb_g: Math.round((p.carb_g || 0) * ratio * 10) / 10,
+          fat_g: Math.round((p.fat_g || 0) * ratio * 10) / 10,
+        };
+      })
+    }));
+  };
+
   const calculateDailyTotals = () => {
     return Object.values(meals).reduce((totals, portions) => {
       portions.forEach(p => {
@@ -157,6 +177,7 @@ const CreateMealPlanPage = () => {
             portions={meals[mealType]}
             onAddClick={handleOpenModal}
             onDeletePortion={(portionId) => handleDeletePortion(mealType, portionId)}
+            onUpdatePortion={(portionId, qty) => handleUpdatePortion(mealType, portionId, qty)}
           />
         ))}
       </div>
